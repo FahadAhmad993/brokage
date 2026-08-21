@@ -1,0 +1,68 @@
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { AppSettingEntity } from './entities/app-setting.entity';
+import { UpdateAppSettingsDto } from './dto/update-app-settings.dto';
+
+const SETTINGS_KEY = 'default';
+
+@Injectable()
+export class SettingsService {
+  constructor(
+    @InjectRepository(AppSettingEntity)
+    private readonly settingsRepository: Repository<AppSettingEntity>,
+  ) {}
+
+  /** Get the single settings row, creating it with defaults if it's ever missing. */
+  async getSettings(): Promise<AppSettingEntity> {
+    let row = await this.settingsRepository.findOne({ where: { key: SETTINGS_KEY } });
+    if (!row) {
+      row = await this.settingsRepository.save(
+        this.settingsRepository.create({ key: SETTINGS_KEY }),
+      );
+    }
+    return row;
+  }
+
+  async updateSettings(dto: UpdateAppSettingsDto): Promise<AppSettingEntity> {
+    const row = await this.getSettings();
+
+    if (dto.pricePerHourPkr !== undefined) row.pricePerHourPkr = dto.pricePerHourPkr;
+    if (dto.minImages !== undefined) row.minImages = dto.minImages;
+    if (dto.maxImages !== undefined) row.maxImages = dto.maxImages;
+    if (dto.cityRequired !== undefined) row.cityRequired = dto.cityRequired;
+    if (dto.areaRequired !== undefined) row.areaRequired = dto.areaRequired;
+    if (dto.customFields !== undefined) {
+      // De-dupe by key defensively — two custom fields sharing a key would
+      // silently clobber each other's answers in `extraFields`.
+      const seen = new Set<string>();
+      row.customFields = dto.customFields.filter((f) => {
+        const key = f.key.trim();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    if (row.minImages > row.maxImages) {
+      // Keep the pair sane rather than rejecting the whole request — the
+      // admin panel already prevents this in the UI, this is just a guard.
+      row.maxImages = row.minImages;
+    }
+
+    return this.settingsRepository.save(row);
+  }
+
+  /** Public shape the mobile app needs to build its post form / price preview. */
+  async getPublicPostConfig() {
+    const s = await this.getSettings();
+    return {
+      pricePerHourPkr: Number(s.pricePerHourPkr),
+      minImages: s.minImages,
+      maxImages: s.maxImages,
+      cityRequired: s.cityRequired,
+      areaRequired: s.areaRequired,
+      customFields: s.customFields,
+    };
+  }
+}

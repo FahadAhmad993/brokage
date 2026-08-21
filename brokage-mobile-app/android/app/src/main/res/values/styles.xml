@@ -1,0 +1,24 @@
+<resources>
+
+    <!-- Base application theme.
+         Material3 parent is REQUIRED by `react-native-bottom-tabs`'s
+         BottomNavigationView (M3 widget). Inflate crashes on AppCompat. -->
+    <style name="AppTheme" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+
+        <!-- Edge-to-edge mode (enabled via `edgeToEdgeEnabled=true` in
+             gradle.properties) makes the system status and nav bars
+             transparent. We only need to declare the foreground icon
+             contrast here: light icons over our dark surfaces.
+             - windowLightStatusBar=false → light status icons
+             - windowLightNavigationBar=false → light nav-bar (gesture pill) icons -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+
+        <!-- Explicit colors removed: under edge-to-edge the system applies
+             a transparent (or platform-managed) background to the bars,
+             and the app surface beneath them shows through. Forcing a
+             colorValue here on Android 15+ triggers a logged warning. -->
+    </style>
+
+</resources>

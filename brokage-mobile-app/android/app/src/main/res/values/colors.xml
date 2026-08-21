@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Colors referenced from the Android theme. Keep these in sync with
+  `src/theme/colors.ts` — values mirrored here, not derived, because RN's
+  JS palette isn't available to the native theme at inflate time.
+-->
+<resources>
+    <!-- Matches `colors.surface` in src/theme/colors.ts. Used as the
+         system navigation bar background so it visually merges with the
+         BottomNavigationView (react-native-bottom-tabs `tabBarStyle.backgroundColor`).
+         Without this, the system nav bar inherits the Material3 default
+         scrim, producing a visible "margin" below the tab bar. -->
+    <color name="tab_bar_surface">#16130F</color>
+    <!-- Matches `colors.background`. Used for the status bar so the top
+         system area also reads continuous with the app canvas. -->
+    <color name="app_background">#0C0A09</color>
+</resources>
