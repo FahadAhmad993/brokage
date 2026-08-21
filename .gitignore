@@ -1,0 +1,16 @@
+# Dependencies
+**/node_modules/
+
+# Environment files — YEH KABHI COMMIT NAHI KARNI, ismein DB password/JWT secret hote hain
+**/.env
+**/.env.local
+
+# Build outputs
+backend/dist/
+admin-panel/dist/
+mobile/android/app/build/
+mobile/ios/build/
+
+# Misc
+.DS_Store
+*.log
