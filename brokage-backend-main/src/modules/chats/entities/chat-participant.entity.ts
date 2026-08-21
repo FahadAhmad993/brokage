@@ -51,6 +51,16 @@ export class ChatParticipantEntity {
   @Column({ type: 'timestamp', nullable: true })
   clearedAt?: Date | null;
 
+  /**
+   * Set when this user taps "Delete chat" on this thread from their inbox
+   * list. The thread is filtered out of THIS user's `listThreads` result
+   * only — the thread row, its messages, and the other participant(s) are
+   * untouched. Cleared automatically the next time someone else sends a
+   * message into the thread, so it reappears like a normal new chat.
+   */
+  @Column({ type: 'timestamp', nullable: true })
+  hiddenAt?: Date | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 }

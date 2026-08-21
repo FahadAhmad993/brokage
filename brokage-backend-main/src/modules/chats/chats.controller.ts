@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Post,
@@ -120,6 +121,22 @@ export class ChatsController {
     @Param('threadId', new ParseUUIDPipe()) threadId: string,
   ) {
     return this.chatsService.clearThreadForUser(user.sub, threadId);
+  }
+
+  @ApiOperation({
+    summary:
+      "Delete a chat from the current user's inbox only — other participants keep the thread untouched, and it reappears for this user if a new message arrives",
+  })
+  @ApiParam({ name: 'threadId', format: 'uuid' })
+  @ApiEnvelopeResponse({ description: 'Thread deleted from inbox successfully' })
+  @ApiCommonErrorResponses()
+  @HttpCode(200)
+  @Delete('threads/:threadId')
+  deleteThread(
+    @CurrentUser() user: JwtPayload,
+    @Param('threadId', new ParseUUIDPipe()) threadId: string,
+  ) {
+    return this.chatsService.hideThreadForUser(user.sub, threadId);
   }
 
   @ApiOperation({

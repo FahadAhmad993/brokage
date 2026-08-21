@@ -321,6 +321,9 @@ export class ChatsService {
       // shouldn't appear in anyone's chat list — restoring it brings it
       // straight back with everything intact, but until then it's hidden.
       .andWhere('thread.deletedAt IS NULL')
+      // "Delete chat" — this user removed the thread from their own inbox.
+      // Reappears automatically once a new message arrives (see sendMessage).
+      .andWhere('participant.hiddenAt IS NULL')
       .leftJoinAndSelect('thread.participants', 'participants')
       .leftJoinAndSelect('participants.user', 'participantUser')
       .leftJoinAndSelect('thread.relatedProperty', 'relatedProperty')
@@ -630,11 +633,16 @@ export class ChatsService {
         { threadId, userId },
         { lastReadAt: new Date(), unreadCount: 0 },
       );
-      /** Raw SQL avoids TypeORM `increment` quirks with compound WHERE + quoted PG columns. */
+      /**
+       * Raw SQL avoids TypeORM `increment` quirks with compound WHERE +
+       * quoted PG columns. Also clears `hiddenAt` for every other
+       * participant — if they'd previously "deleted" this chat from their
+       * inbox, a fresh incoming message brings it back, same as WhatsApp.
+       */
       await manager.query(
         `
         UPDATE "chat_participants"
-        SET "unreadCount" = COALESCE("unreadCount", 0) + 1
+        SET "unreadCount" = COALESCE("unreadCount", 0) + 1, "hiddenAt" = NULL
         WHERE "threadId" = $1 AND "userId" <> $2
         `,
         [threadId, userId],
@@ -846,6 +854,18 @@ isDeletedForEveryone: false,
     const clearedAt = new Date();
     await this.participantRepository.update({ threadId, userId }, { clearedAt });
     return { success: true, clearedAt };
+  }
+
+  /**
+   * "Delete chat" — removes the thread from this user's own inbox list
+   * only. Nothing is deleted for the other participant(s); the messages
+   * and thread row are untouched. See `hiddenAt` on ChatParticipantEntity.
+   */
+  async hideThreadForUser(userId: string, threadId: string) {
+    await this.assertMembership(userId, threadId);
+    const hiddenAt = new Date();
+    await this.participantRepository.update({ threadId, userId }, { hiddenAt });
+    return { success: true, hiddenAt };
   }
 
   /**
