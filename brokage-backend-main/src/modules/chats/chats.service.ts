@@ -49,6 +49,47 @@ function sanitizeLocationContext(
   };
 }
 
+/**
+ * Defensive normalizer for the "Reply Privately" quote snapshot — mirrors
+ * `sanitizeLocationContext`. Drops the attachment entirely rather than
+ * writing a half-valid quote into JSONB.
+ */
+function sanitizeReplyToCommunityMessage(
+  raw: ReplyToCommunityMessageDto | undefined,
+): ReplyToCommunityMessageDto | null {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+  const { messageId, threadId, threadTitle, body, authorId } = raw;
+  if (
+    typeof messageId !== 'string' ||
+    !messageId.trim() ||
+    typeof threadId !== 'string' ||
+    !threadId.trim() ||
+    typeof authorId !== 'string' ||
+    !authorId.trim()
+  ) {
+    return null;
+  }
+  return {
+    messageId: messageId.trim(),
+    threadId: threadId.trim(),
+    threadTitle: typeof threadTitle === 'string' ? threadTitle.slice(0, 200) : '',
+    body: typeof body === 'string' ? body.slice(0, 500) : '',
+    imageUrl:
+      typeof raw.imageUrl === 'string' && raw.imageUrl.trim()
+        ? raw.imageUrl.trim().slice(0, 2048)
+        : null,
+    authorId: authorId.trim(),
+    authorName:
+      typeof raw.authorName === 'string' ? raw.authorName.slice(0, 100) : null,
+    authorAvatarUrl:
+      typeof raw.authorAvatarUrl === 'string'
+        ? raw.authorAvatarUrl.slice(0, 2048)
+        : null,
+  };
+}
+
 export type ChatListingRefDto = {
   id: string;
   title: string;
@@ -89,7 +130,31 @@ export type ChatMessageDto = {
     authorAvatarUrl?: string | null;
   } | null;
 
+  /** WhatsApp-style "Reply Privately" quote of the community message this
+   *  private message is replying to. See `ChatMessageEntity.replyToCommunityMessage`. */
+  replyToCommunityMessage?: {
+    messageId: string;
+    threadId: string;
+    threadTitle: string;
+    body: string;
+    imageUrl?: string | null;
+    authorId: string;
+    authorName?: string | null;
+    authorAvatarUrl?: string | null;
+  } | null;
+
   isDeletedForEveryone?: boolean;
+};
+
+export type ReplyToCommunityMessageDto = {
+  messageId: string;
+  threadId: string;
+  threadTitle: string;
+  body: string;
+  imageUrl?: string | null;
+  authorId: string;
+  authorName?: string | null;
+  authorAvatarUrl?: string | null;
 };
 
 @Injectable()
@@ -570,6 +635,7 @@ export class ChatsService {
     authorName?: string | null;
     authorAvatarUrl?: string | null;
   },
+    replyToCommunityMessage?: ReplyToCommunityMessageDto,
   ): Promise<ChatMessageDto> {
     await this.assertMembership(userId, threadId);
     const cleanBody = typeof body === 'string' ? body.trim() : '';
@@ -599,6 +665,9 @@ export class ChatsService {
   typeof imageUrl === 'string' && imageUrl.trim()
     ? imageUrl.trim().slice(0, 2048)
     : null;
+    const cleanReplyToCommunityMessage = sanitizeReplyToCommunityMessage(
+      replyToCommunityMessage,
+    );
 
     const messageId = await this.dataSource.transaction(async (manager) => {
       if (cleanClientId) {
@@ -624,6 +693,7 @@ export class ChatsService {
     locationContext: cleanLocation,
     imageUrl: cleanImageUrl,
     communityPostContext: communityPostContext ?? null,
+    replyToCommunityMessage: cleanReplyToCommunityMessage,
   }),
 );
 
@@ -818,6 +888,7 @@ export class ChatsService {
         clientId: message.clientId,
         imageUrl: null,
         communityPostContext: null,
+        replyToCommunityMessage: message.replyToCommunityMessage ?? null,
         isDeletedForEveryone: true,
       };
     }
@@ -843,6 +914,7 @@ export class ChatsService {
         : undefined,
 imageUrl: message.imageUrl ?? null,
 communityPostContext: message.communityPostContext ?? null,
+replyToCommunityMessage: message.replyToCommunityMessage ?? null,
 isDeletedForEveryone: false,
 
     };
@@ -914,11 +986,59 @@ isDeletedForEveryone: false,
         imageUrl: null,
         locationContext: null,
         communityPostContext: null,
+        replyToCommunityMessage: null,
         isDeletedForEveryone: true,
         deletedAt: new Date(),
       },
     );
     return { success: true, threadId: message.threadId };
+  }
+
+  /**
+   * Admin action: permanently wipe every message in every community (group)
+   * thread from Postgres. Threads, participants, and user profiles are left
+   * untouched — only `chat_messages` rows for `type = 'group'` threads are
+   * removed, so the community itself keeps existing and simply starts empty.
+   */
+  async adminDeleteAllCommunityMessages(): Promise<{ deleted: number }> {
+    return this.adminDeleteMessagesForThreadType('group');
+  }
+
+  /**
+   * Admin action: permanently wipe every message in every private (direct)
+   * thread from Postgres — every user's DM history is cleared. User
+   * accounts, their profiles, and the thread rows themselves are left
+   * intact, so any two users can carry on messaging each other afterwards
+   * exactly as before (they just start with a clean history).
+   */
+  async adminDeleteAllPrivateMessages(): Promise<{ deleted: number }> {
+    return this.adminDeleteMessagesForThreadType('direct');
+  }
+
+  private async adminDeleteMessagesForThreadType(
+    type: 'group' | 'direct',
+  ): Promise<{ deleted: number }> {
+    const threads = await this.threadRepository
+      .createQueryBuilder('thread')
+      .select('thread.id', 'id')
+      .where('thread.type = :type', { type })
+      .getRawMany<{ id: string }>();
+    const ids = threads.map((r) => r.id);
+    if (ids.length === 0) {
+      return { deleted: 0 };
+    }
+    // Hard delete — actual row removal, not a soft/hide flag, so storage is
+    // freed and nothing lingers in the database.
+    const result = await this.messageRepository.delete({ threadId: In(ids) });
+    // Reset unread counters / clear per-user hide flags so the now-empty
+    // threads don't show stale badges or stay hidden for anyone.
+    await this.participantRepository
+      .createQueryBuilder()
+      .update(ChatParticipantEntity)
+      .set({ unreadCount: 0, clearedAt: null, hiddenAt: null })
+      .where('"threadId" IN (:...ids)', { ids })
+      .execute();
+    return { deleted: result.affected ?? 0 };
   }
 
   private toListingRef(property: PropertyEntity): ChatListingRefDto {

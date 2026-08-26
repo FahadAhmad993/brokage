@@ -332,7 +332,13 @@ export function PropertyDetailScreen() {
         ? await createOrOpenDirectThread(
             property.lister.displayName,
             property.lister.id,
-            property.id,
+            {
+              id: property.id,
+              title: property.title,
+              imageUrl: property.imageUrl,
+              location: property.location,
+              priceMonthly: property.priceMonthly,
+            },
           ).catch(() => openDirectThreadForListing(property.lister, property, user))
         : openDirectThreadForListing(property.lister, property, user);
     queryClient.setQueryData(

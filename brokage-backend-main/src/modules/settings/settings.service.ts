@@ -44,6 +44,10 @@ export class SettingsService {
       });
     }
 
+    if (dto.chatRetentionDays !== undefined) {
+      row.chatRetentionDays = dto.chatRetentionDays;
+    }
+
     if (row.minImages > row.maxImages) {
       // Keep the pair sane rather than rejecting the whole request — the
       // admin panel already prevents this in the UI, this is just a guard.
@@ -51,6 +55,13 @@ export class SettingsService {
     }
 
     return this.settingsRepository.save(row);
+  }
+
+  /** Current retention window in days, used by `ChatRetentionService`'s sweep. */
+  async getChatRetentionDays(): Promise<number> {
+    const s = await this.getSettings();
+    const days = Number(s.chatRetentionDays);
+    return Number.isFinite(days) && days > 0 ? days : 20;
   }
 
   /** Public shape the mobile app needs to build its post form / price preview. */

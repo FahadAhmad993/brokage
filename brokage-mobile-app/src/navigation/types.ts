@@ -69,8 +69,25 @@ export type MainStackParamList = {
     threadId: string;
     title: string;
     relatedListing?: ChatListingRef;
-    /** Pre-fills the composer — used by "reply privately" from a community message. */
+    /** Pre-fills the composer — used by "Shared an Add" and similar flows. */
     initialDraft?: string;
+    /**
+     * WhatsApp-style "Reply Privately": set when this DM was opened by
+     * tapping someone else's community message. Renders as a dismissible
+     * quote-preview bar above the composer (NOT pasted into the input) —
+     * the sender types their own reply, and the quote travels with it as
+     * `replyToCommunityMessage` on the outgoing message.
+     */
+    replyToMessage?: {
+      messageId: string;
+      threadId: string;
+      threadTitle: string;
+      body: string;
+      imageUrl?: string | null;
+      authorId: string;
+      authorName?: string | null;
+      authorAvatarUrl?: string | null;
+    };
   };
   // Profile sub-screens hoisted from ProfileStack so they hide the bottom
   // tab bar while open (the bar can't be hidden in place on the native
@@ -78,6 +95,7 @@ export type MainStackParamList = {
   Settings: undefined;
   EditProfile: undefined;
   ChangePassword: undefined;
+  BlockedUsers: undefined;
   UserProfile: {
     userId: string;
     displayName?: string;

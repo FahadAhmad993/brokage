@@ -141,7 +141,7 @@ export function MainTabNavigator() {
       <Tab.Screen
         name="ChatsTab"
         options={{
-          title: 'Chats',
+          title: 'Views',
           tabBarIcon: () => chatsIcon,
           tabBarBadge: formatBadge(directUnread),
           tabBarBadgeBackgroundColor: colors.primary,

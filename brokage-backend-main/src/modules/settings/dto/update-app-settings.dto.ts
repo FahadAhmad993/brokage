@@ -74,4 +74,15 @@ export class UpdateAppSettingsDto {
   @ValidateNested({ each: true })
   @Type(() => CustomPostFieldDto)
   customFields?: CustomPostFieldDto[];
+
+  @ApiPropertyOptional({
+    example: 20,
+    description:
+      'Days a chat message (community or private) is kept before it is permanently deleted from the database.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(3650)
+  chatRetentionDays?: number;
 }

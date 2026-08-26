@@ -915,6 +915,53 @@ export function ChatThreadScreen() {
   }, [queryClient, threadId, user?.id]);
 
   const [draft, setDraft] = React.useState(route.params.initialDraft ?? '');
+  /**
+   * WhatsApp-style "Reply Privately" pending quote — set when this DM was
+   * opened by tapping someone else's community message (see
+   * `replyPrivatelyToMessage`). Rendered as a dismissible preview bar
+   * above the composer; the quoted community text is intentionally never
+   * written into `draft`, so the input stays empty for the user's own
+   * reply.
+   */
+  const [pendingReply, setPendingReply] = React.useState(route.params.replyToMessage ?? null);
+  /**
+   * `ChatThread` is a single screen reused across navigations (see
+   * `navigateToChatsThread` / `crossTabNavigate.ts` — it dispatches
+   * `CommonActions.navigate` by route name, which brings an already-open
+   * `ChatThread` back into focus and just updates its params instead of
+   * remounting). That means the `useState` initializers above only ever
+   * run once, on the very first time this screen mounts.
+   *
+   * This effect re-applies `initialDraft` / `replyToMessage` whenever a
+   * *new* navigation lands on this already-open screen (new `route.params`
+   * object), and clears stale state when switching to a different thread
+   * with no quote/draft of its own.
+   */
+  const prevRouteParamsRef = React.useRef(route.params);
+  const prevDraftThreadIdRef = React.useRef(threadId);
+  React.useEffect(() => {
+    if (prevRouteParamsRef.current === route.params) {
+      return;
+    }
+    prevRouteParamsRef.current = route.params;
+    const threadChanged = prevDraftThreadIdRef.current !== threadId;
+    prevDraftThreadIdRef.current = threadId;
+    if (route.params.initialDraft) {
+      setDraft(route.params.initialDraft);
+    } else if (threadChanged) {
+      setDraft('');
+    }
+    if (route.params.replyToMessage) {
+      setPendingReply(route.params.replyToMessage);
+    } else if (threadChanged) {
+      setPendingReply(null);
+    }
+  }, [route.params, threadId]);
+
+  const cancelPendingReply = React.useCallback(() => {
+    setPendingReply(null);
+  }, []);
+
   const [typingName, setTypingName] = React.useState<string | null>(null);
   const [peerOnline, setPeerOnline] = React.useState<boolean | null>(null);
   const [sendError, setSendError] = React.useState<string | null>(null);
@@ -1067,11 +1114,13 @@ const send = useMutation({
     clientId,
     locationContext,
     imageUrl,
+    replyToCommunityMessage,
   }: {
     body: string;
     clientId: string;
     locationContext?: ChatMessage['locationContext'];
     imageUrl?: string;
+    replyToCommunityMessage?: ChatMessage['replyToCommunityMessage'];
   }) =>
     sendChatMessage(
       threadId,
@@ -1080,9 +1129,11 @@ const send = useMutation({
       clientId,
       locationContext,
       imageUrl,
+      undefined,
+      replyToCommunityMessage,
     ),
 
-  onMutate: ({ body, clientId, locationContext, imageUrl }) => {
+  onMutate: ({ body, clientId, locationContext, imageUrl, replyToCommunityMessage }) => {
     setSendError(null);
 
     if (user) {
@@ -1099,6 +1150,7 @@ const send = useMutation({
 
         ...(locationContext ? { locationContext } : {}),
         ...(imageUrl ? { imageUrl } : {}),
+        ...(replyToCommunityMessage ? { replyToCommunityMessage } : {}),
       });
 
       queryClient.setQueryData<ChatThread[] | undefined>(
@@ -1120,6 +1172,7 @@ const send = useMutation({
 
   onSuccess: message => {
     setDraft('');
+    setPendingReply(null);
 
     upsertMessage({
       ...message,
@@ -1756,7 +1809,8 @@ const openDirectWithUser = useCallback(
 
 // Tapping a community/group message itself (not the author name, which
 // opens their profile) — WhatsApp-style "reply privately": opens/creates
-// the DM with that sender and pre-fills the composer quoting the message.
+// the DM with that sender and shows the quoted message as a preview bar
+// above an EMPTY composer (never copied into the input as text).
 const replyPrivatelyToMessage = useCallback(
   async (message: ChatMessage) => {
     if (!user || !message.authorId || message.authorId === user.id) {
@@ -1767,19 +1821,25 @@ const replyPrivatelyToMessage = useCallback(
         message.authorName,
         message.authorId,
       );
-      const quotedSnippet =
-        message.body?.trim()?.slice(0, 200) ||
-        (message.imageUrl ? 'Photo' : message.locationContext ? 'Location' : '');
       navigateToChatsThread(navigation, {
         threadId: thread.id,
         title: thread.title,
-        initialDraft: quotedSnippet ? `Re: "${quotedSnippet}" — ` : undefined,
+        replyToMessage: {
+          messageId: message.id,
+          threadId: message.threadId,
+          threadTitle: threadsQuery.data?.title ?? 'Community',
+          body: message.body?.trim()?.slice(0, 500) ?? '',
+          imageUrl: message.imageUrl ?? null,
+          authorId: message.authorId,
+          authorName: message.authorName,
+          authorAvatarUrl: message.authorAvatarUrl ?? null,
+        },
       });
     } catch (err) {
       setSendError(errorMessage(err, 'Could not open chat'));
     }
   },
-  [navigation, user],
+  [navigation, user, threadsQuery.data?.title],
 );
   // Tapping an ad's advertiser icon/name: open (or jump to) the direct
   // chat with that user, with the ad copied along as the chat's related
@@ -2110,6 +2170,33 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
         </Text>
       ) : (
         <>
+          {/* Reply Privately quote — the community message this private
+              reply is quoting. Read-only preview, never editable text. */}
+          {item.replyToCommunityMessage ? (
+            <View style={[styles.quoteBlock, mine && styles.quoteBlockMine]}>
+              <View style={styles.quoteAccent} />
+              {item.replyToCommunityMessage.imageUrl ? (
+                <Image
+                  source={{ uri: item.replyToCommunityMessage.imageUrl }}
+                  style={styles.quoteThumb}
+                  resizeMode="cover"
+                />
+              ) : null}
+              <View style={styles.quoteTextWrap}>
+                <Text style={styles.quoteAuthor} numberOfLines={1}>
+                  {item.replyToCommunityMessage.authorName ?? 'Community member'}
+                </Text>
+                <Text style={styles.quoteBody} numberOfLines={2}>
+                  {item.replyToCommunityMessage.body?.trim()
+                    ? item.replyToCommunityMessage.body
+                    : item.replyToCommunityMessage.imageUrl
+                      ? 'Photo'
+                      : 'Message'}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
           {/* Image */}
           {item.imageUrl ? (
             <Image
@@ -2538,6 +2625,39 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
             {sendError}
           </Text>
         ) : null}
+        {pendingReply ? (
+          <View style={styles.replyPreviewBar}>
+            <View style={styles.replyPreviewAccent} />
+            {pendingReply.imageUrl ? (
+              <Image
+                source={{ uri: pendingReply.imageUrl }}
+                style={styles.replyPreviewThumb}
+                resizeMode="cover"
+              />
+            ) : null}
+            <View style={styles.replyPreviewTextWrap}>
+              <Text style={styles.replyPreviewAuthor} numberOfLines={1}>
+                {pendingReply.authorName ?? 'Community member'}
+              </Text>
+              <Text style={styles.replyPreviewBody} numberOfLines={1}>
+                {pendingReply.body?.trim()
+                  ? pendingReply.body
+                  : pendingReply.imageUrl
+                    ? 'Photo'
+                    : 'Message'}
+              </Text>
+            </View>
+            <Pressable
+              onPress={cancelPendingReply}
+              hitSlop={layout.hitSlop}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel reply"
+              style={styles.replyPreviewCancel}
+            >
+              <X color={colors.textMuted} size={iconSize.sm} strokeWidth={iconStroke} />
+            </Pressable>
+          </View>
+        ) : null}
         <View style={styles.composerRow}>
 
          
@@ -2667,7 +2787,9 @@ numberOfLines={1}
               send.mutate({
                 body: trimmed,
                 clientId: newClientMessageId(),
+                ...(pendingReply ? { replyToCommunityMessage: pendingReply } : {}),
               });
+              setPendingReply(null);
               flushTypingStop();
             }}
             hitSlop={layout.hitSlop}
@@ -2965,7 +3087,7 @@ groupAdCoverCard: {
 
 /** Every album photo is stacked in the same box and cross-faded. */
 groupAdImageFrame: {
-  ...StyleSheet.absoluteFillObject,
+  ...StyleSheet.absoluteFill,
   width: '100%',
   height: '100%',
 },
@@ -2978,7 +3100,7 @@ groupAdImageFill: {
 
 /** Left half = previous photo, right half = next photo. */
 groupAdTapZones: {
-  ...StyleSheet.absoluteFillObject,
+  ...StyleSheet.absoluteFill,
   flexDirection: 'row',
 },
 
@@ -3233,6 +3355,78 @@ bubbleImage: {
     color: colors.danger,
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.xs,
+  },
+  replyPreviewBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: layout.radius.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  replyPreviewAccent: {
+    width: 3,
+    alignSelf: 'stretch',
+    borderRadius: 2,
+    backgroundColor: colors.primary,
+  },
+  replyPreviewThumb: {
+    width: 36,
+    height: 36,
+    borderRadius: layout.radius.sm,
+  },
+  replyPreviewTextWrap: {
+    flex: 1,
+  },
+  replyPreviewAuthor: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  replyPreviewBody: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  replyPreviewCancel: {
+    padding: spacing.xs,
+  },
+  quoteBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    borderRadius: layout.radius.sm,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  quoteBlockMine: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  quoteAccent: {
+    width: 3,
+    alignSelf: 'stretch',
+    borderRadius: 2,
+    backgroundColor: colors.primary,
+  },
+  quoteThumb: {
+    width: 30,
+    height: 30,
+    borderRadius: layout.radius.sm,
+  },
+  quoteTextWrap: {
+    flex: 1,
+  },
+  quoteAuthor: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  quoteBody: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   retryStrip: {
     flexDirection: 'row',

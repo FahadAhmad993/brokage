@@ -115,6 +115,23 @@ export type ChatMessage = {
   authorName?: string | null;
   authorAvatarUrl?: string | null;
 } | null;
+  /**
+   * WhatsApp-style "Reply Privately": a frozen snapshot of the community
+   * (group) message this private message is replying to. Set only on
+   * messages sent from a DM that was opened by tapping a community
+   * message. The quoted community text is never copied into `body` —
+   * bubbles render this as its own preview block above the reply.
+   */
+  replyToCommunityMessage?: {
+    messageId: string;
+    threadId: string;
+    threadTitle: string;
+    body: string;
+    imageUrl?: string | null;
+    authorId: string;
+    authorName?: string | null;
+    authorAvatarUrl?: string | null;
+  } | null;
   /** Author-only "delete for everyone" applied — body/image are already
    *  blanked by the server; bubbles render a "message deleted" placeholder. */
   isDeletedForEveryone?: boolean;

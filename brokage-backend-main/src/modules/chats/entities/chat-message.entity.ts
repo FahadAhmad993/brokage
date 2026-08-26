@@ -80,6 +80,27 @@ communityPostContext!: {
   authorAvatarUrl?: string | null;
 } | null;
 
+/**
+ * WhatsApp-style "Reply Privately": a frozen snapshot of the community
+ * (group) message this private message is quoting. Attached the moment a
+ * user single-taps someone else's message in the community and replies in
+ * the resulting/target DM — NOT copied into the message body, so the
+ * composer stays empty and the quote renders as its own preview block
+ * above the reply, both in the DM and (optionally) linking back to the
+ * original community message.
+ */
+@Column({ type: 'jsonb', nullable: true })
+replyToCommunityMessage!: {
+  messageId: string;
+  threadId: string;
+  threadTitle: string;
+  body: string;
+  imageUrl?: string | null;
+  authorId: string;
+  authorName?: string | null;
+  authorAvatarUrl?: string | null;
+} | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 

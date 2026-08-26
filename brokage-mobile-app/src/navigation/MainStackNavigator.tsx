@@ -7,6 +7,7 @@ import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatThreadScreen } from '../screens/chat/ChatThreadScreen';
+import { BlockedUsersScreen } from '../screens/profile/BlockedUsersScreen';
 import { ChangePasswordScreen } from '../screens/profile/ChangePasswordScreen';
 import { EditProfileScreen } from '../screens/profile/EditProfileScreen';
 import { SettingsScreen } from '../screens/profile/SettingsScreen';
@@ -187,6 +188,11 @@ export function MainStackNavigator() {
       <Stack.Screen
         name="Settings"
         component={SettingsScreen}
+        options={{ headerTitle: '' }}
+      />
+      <Stack.Screen
+        name="BlockedUsers"
+        component={BlockedUsersScreen}
         options={{ headerTitle: '' }}
       />
     </Stack.Navigator>

@@ -44,6 +44,8 @@ export type AppSettings = {
   cityRequired: boolean;
   areaRequired: boolean;
   customFields: CustomPostField[];
+  /** Days a chat message (community or private) is kept before it's permanently deleted. */
+  chatRetentionDays: number;
   updatedAt: string;
 };
 
@@ -206,6 +208,20 @@ export function rejectAd(id: string, reason?: string) {
 
 export function deleteAd(id: string) {
   return apiRequest(`/admin/community-posts/${id}`, { method: 'DELETE' });
+}
+
+// ---- Chat management (permanent deletion) ---------------------------------
+
+export type ChatDeletionResult = { deleted: number };
+
+/** Permanently deletes every message in every community (group) chat. Communities and profiles are kept. */
+export function deleteAllCommunityMessages() {
+  return apiRequest<ChatDeletionResult>('/admin/chats/community', { method: 'DELETE' });
+}
+
+/** Permanently deletes every message in every private (direct) chat. Threads and profiles are kept. */
+export function deleteAllPrivateMessages() {
+  return apiRequest<ChatDeletionResult>('/admin/chats/private', { method: 'DELETE' });
 }
 
 // ---- Reports --------------------------------------------------------------

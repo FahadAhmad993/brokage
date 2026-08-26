@@ -6,11 +6,13 @@ import type { RouteProp } from '@react-navigation/native';
 import { useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { navigateToChatsThread } from '../../navigation/crossTabNavigate';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronRight,
   MessageCircle,
+  Search,
   Users,
+  X,
 } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -22,11 +24,14 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { displayThreadUnread, sameId } from '../../chat/threadUnread';
-import { errorMessage, fetchThreads } from '../../api/client';
+import { deleteChatThread, errorMessage, fetchThreads } from '../../api/client';
+import { ActionMenu, type ActionMenuItem } from '../../components/ActionMenu';
+import { useAppAlert, useAppToast } from '../../components/appAlert';
 import type { ChatsStackParamList, MainTabParamList } from '../../navigation/types';
 import type { ChatThread } from '../../types/models';
 import { useActiveChatThreadStore } from '../../stores/activeChatThreadStore';
@@ -119,10 +124,12 @@ const ChatListRow = React.memo(function ChatListRow({
   thread,
   isActive,
   onPress,
+  onLongPress,
 }: {
   thread: ChatThread;
   isActive: boolean;
   onPress: (thread: ChatThread) => void;
+  onLongPress?: (thread: ChatThread, x: number, y: number) => void;
 }) {
   const unreadCount = isActive ? 0 : displayThreadUnread(thread.unreadCount);
   const unreadBadge = formatUnreadBadge(unreadCount);
@@ -182,6 +189,13 @@ const ChatListRow = React.memo(function ChatListRow({
           pressed && Platform.OS === 'ios' && chatListStyles.rowTouchablePressed,
         ]}
         onPress={() => onPress(thread)}
+        onLongPress={
+          onLongPress
+            ? event =>
+                onLongPress(thread, event.nativeEvent.pageX, event.nativeEvent.pageY)
+            : undefined
+        }
+        delayLongPress={400}
         accessibilityRole="button"
         accessibilityLabel={`${thread.title}${unreadSuffix}`}
       />
@@ -194,14 +208,108 @@ export function ChatsListScreen() {
   const route = useRoute<RouteProp<ChatsStackParamList, 'ChatList'>>();
   const tabBarHeight = useBottomTabBarHeight();
   const user = useAuthStore(s => s.user);
+  const queryClient = useQueryClient();
+  const alert = useAppAlert();
+  const toast = useAppToast();
   const activeThreadId = useActiveChatThreadStore(s => s.activeThreadId);
   const isGroupMode = route.params?.mode === 'group';
-  const screenTitle = route.params?.title ?? (isGroupMode ? 'Group Chat' : 'Chats');
+  const screenTitle = route.params?.title ?? (isGroupMode ? 'Group Chat' : 'Views');
   const screenSubtitle =
     route.params?.subtitle ??
     (isGroupMode
       ? 'Community space discussions with members.'
       : 'Community space and private notes with hosts about listings.');
+
+  // Search: a top icon toggles a search bar that filters the visible
+  // threads by title. Group Chat gets this per product ask; harmless to
+  // leave mounted (but hidden) for the direct list too.
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const closeSearch = React.useCallback(() => {
+    setSearchOpen(false);
+    setSearchQuery('');
+  }, []);
+
+  // "Delete chat" — long-press a row in the private inbox to remove it
+  // from this device's list only (see deleteChatThread / hideThreadForUser
+  // on the backend). Group threads aren't offered this — leaving a
+  // community isn't the same action as hiding a DM.
+  const [deleteMenuThread, setDeleteMenuThread] = React.useState<ChatThread | null>(null);
+  const [deleteMenuAnchor, setDeleteMenuAnchor] = React.useState<{ x: number; y: number } | null>(null);
+  const [deletingThreadId, setDeletingThreadId] = React.useState<string | null>(null);
+
+  const onRowLongPress = React.useCallback(
+    (thread: ChatThread, x: number, y: number) => {
+      if (thread.type === 'group') {
+        return;
+      }
+      setDeleteMenuThread(thread);
+      setDeleteMenuAnchor({ x, y });
+    },
+    [],
+  );
+
+  const runDeleteThread = React.useCallback(
+    async (thread: ChatThread) => {
+      if (!user) {
+        return;
+      }
+      setDeletingThreadId(thread.id);
+      const previous = queryClient.getQueryData<ChatThread[]>(['threads', user.id]);
+      // Optimistic removal so the row disappears immediately.
+      queryClient.setQueryData<ChatThread[] | undefined>(['threads', user.id], prev =>
+        (prev ?? []).filter(t => !sameId(t.id, thread.id)),
+      );
+      try {
+        await deleteChatThread(thread.id);
+        toast({ title: 'Chat deleted', kind: 'success' });
+      } catch (err) {
+        // Roll back on failure so the user doesn't silently lose the thread.
+        if (previous) {
+          queryClient.setQueryData(['threads', user.id], previous);
+        }
+        alert({
+          title: 'Could not delete chat',
+          message: errorMessage(err, 'Please try again.'),
+        });
+      } finally {
+        setDeletingThreadId(null);
+      }
+    },
+    [alert, queryClient, toast, user],
+  );
+
+  const confirmDeleteThread = React.useCallback(
+    (thread: ChatThread) => {
+      alert({
+        title: `Delete chat with ${thread.title}?`,
+        message: 'This removes the conversation from your inbox. The other person keeps their copy.',
+        buttons: [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete chat',
+            style: 'destructive',
+            onPress: () => runDeleteThread(thread),
+          },
+        ],
+      });
+    },
+    [alert, runDeleteThread],
+  );
+
+  const deleteMenuItems: ActionMenuItem[] = React.useMemo(
+    () =>
+      deleteMenuThread
+        ? [
+            {
+              label: 'Delete chat',
+              destructive: true,
+              onPress: () => confirmDeleteThread(deleteMenuThread),
+            },
+          ]
+        : [],
+    [confirmDeleteThread, deleteMenuThread],
+  );
 
   const threadsQuery = useQuery({
     queryKey: ['threads', user?.id],
@@ -209,9 +317,13 @@ export function ChatsListScreen() {
     enabled: !!user,
   });
   const threads = threadsQuery.data ?? [];
-  const visibleThreads = isGroupMode
+  const modeThreads = isGroupMode
     ? threads.filter(thread => thread.type === 'group')
     : threads.filter(thread => thread.type !== 'group');
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const visibleThreads = normalizedQuery
+    ? modeThreads.filter(thread => thread.title?.toLowerCase().includes(normalizedQuery))
+    : modeThreads;
   const listLoading =
     Boolean(user) &&
     threadsQuery.fetchStatus === 'fetching' &&
@@ -267,19 +379,64 @@ export function ChatsListScreen() {
         thread={t}
         isActive={Boolean(activeThreadId && sameId(t.id, activeThreadId))}
         onPress={openThread}
+        onLongPress={onRowLongPress}
       />
     ),
-    [activeThreadId, openThread],
+    [activeThreadId, onRowLongPress, openThread],
   );
 
   return (
     <SafeAreaView style={chatListStyles.safe} edges={['top', 'left', 'right']}>
       <View style={chatListStyles.header}>
-        <Text style={screenStyles.sectionOverline}>Inbox</Text>
-        <Text style={chatListStyles.title}>{screenTitle}</Text>
-        <Text style={chatListStyles.sub}>
-          {screenSubtitle}
-        </Text>
+        <View style={chatListStyles.headerTopRow}>
+          <View style={chatListStyles.headerTopText}>
+            <Text style={screenStyles.sectionOverline}>Inbox</Text>
+            <Text style={chatListStyles.title}>{screenTitle}</Text>
+          </View>
+          {isGroupMode ? (
+            <Pressable
+              onPress={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
+              hitSlop={12}
+              style={({ pressed }) => [
+                chatListStyles.searchIconBtn,
+                pressed && chatListStyles.pressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={searchOpen ? 'Close search' : 'Search group chats'}>
+              {searchOpen ? (
+                <X color={colors.primary} size={iconSize.md} strokeWidth={iconStroke} />
+              ) : (
+                <Search color={colors.primary} size={iconSize.md} strokeWidth={iconStroke} />
+              )}
+            </Pressable>
+          ) : null}
+        </View>
+        {searchOpen ? (
+          <View style={chatListStyles.searchBar}>
+            <Search color={colors.textMuted} size={iconSize.sm} strokeWidth={iconStroke} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search group chats"
+              placeholderTextColor={colors.textMuted}
+              style={chatListStyles.searchInput}
+              autoFocus
+              returnKeyType="search"
+              accessibilityLabel="Search group chats"
+            />
+            {searchQuery ? (
+              <Pressable
+                onPress={() => setSearchQuery('')}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search">
+                <X color={colors.textMuted} size={iconSize.sm} strokeWidth={iconStroke} />
+              </Pressable>
+            ) : null}
+          </View>
+        ) : (
+          <Text style={chatListStyles.sub}>{screenSubtitle}</Text>
+        )}
       </View>
 
       <View style={chatListStyles.body}>
@@ -314,11 +471,15 @@ export function ChatsListScreen() {
               strokeWidth={iconStroke}
             />
           </View>
-          <Text style={chatListStyles.emptyTitle}>Your inbox is quiet</Text>
+          <Text style={chatListStyles.emptyTitle}>
+            {normalizedQuery ? 'No matches' : 'Your inbox is quiet'}
+          </Text>
           <Text style={chatListStyles.emptyBody}>
-            {isGroupMode
-              ? 'When you join a group conversation, it will show up here.'
-              : 'When you join conversations or message a host, threads show up here with the listing they are about.'}
+            {normalizedQuery
+              ? `No group chats match "${searchQuery.trim()}".`
+              : isGroupMode
+                ? 'When you join a group conversation, it will show up here.'
+                : 'When you join conversations or message a host, threads show up here with the listing they are about.'}
           </Text>
         </View>
       ) : (
@@ -331,7 +492,7 @@ export function ChatsListScreen() {
           // prop depends on it). Without `activeThreadId` here, returning
           // from a thread would leave memoized rows showing the stale
           // "active" state until the next thread:update push arrives.
-          extraData={`${threadsQuery.dataUpdatedAt}:${activeThreadId ?? ''}`}
+          extraData={`${threadsQuery.dataUpdatedAt}:${activeThreadId ?? ''}:${deletingThreadId ?? ''}`}
           style={chatListStyles.listFlex}
           contentContainerStyle={[
             chatListStyles.list,
@@ -359,6 +520,15 @@ export function ChatsListScreen() {
         />
       )}
       </View>
+      <ActionMenu
+        visible={Boolean(deleteMenuThread)}
+        onClose={() => {
+          setDeleteMenuThread(null);
+          setDeleteMenuAnchor(null);
+        }}
+        anchor={deleteMenuAnchor}
+        items={deleteMenuItems}
+      />
     </SafeAreaView>
   );
 }
@@ -378,6 +548,39 @@ const chatListStyles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
     backgroundColor: colors.background,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  headerTopText: { flex: 1, gap: spacing.xs },
+  searchIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: layout.radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(201,196,215,0.18)',
+    paddingHorizontal: spacing.md,
+    minHeight: layout.buttonHeightMin,
+  },
+  searchInput: {
+    flex: 1,
+    ...typography.body,
+    color: colors.textPrimary,
+    paddingVertical: 10,
   },
   title: {
     ...typography.displayMedium,

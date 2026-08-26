@@ -8,6 +8,7 @@ import { AdminUsersController } from './admin-users.controller';
 import { AdminCommunitiesController } from './admin-communities.controller';
 import { AdminCommunityPostsController } from './admin-community-posts.controller';
 import { AdminReportsController } from './admin-reports.controller';
+import { AdminChatsController } from './admin-chats.controller';
 
 /**
  * Thin by design: every admin controller delegates straight to the same
@@ -28,6 +29,7 @@ import { AdminReportsController } from './admin-reports.controller';
     AdminCommunitiesController,
     AdminCommunityPostsController,
     AdminReportsController,
+    AdminChatsController,
   ],
 })
 export class AdminModule {}

@@ -337,6 +337,16 @@ export class ChatsGateway
     authorName?: string | null;
     authorAvatarUrl?: string | null;
   };
+  replyToCommunityMessage?: {
+    messageId: string;
+    threadId: string;
+    threadTitle: string;
+    body: string;
+    imageUrl?: string | null;
+    authorId: string;
+    authorName?: string | null;
+    authorAvatarUrl?: string | null;
+  };
 },
   ) {
     const { user } = readSocketData(client);
@@ -360,6 +370,7 @@ export class ChatsGateway
         readLocationContext(payload.locationContext),
         readImageUrl(payload.imageUrl),
         payload.communityPostContext,
+        payload.replyToCommunityMessage,
       );
     } catch (err) {
       throw this.toWsException(err);

@@ -10,6 +10,7 @@ import { ChatThreadEntity } from './entities/chat-thread.entity';
 import { ChatParticipantEntity } from './entities/chat-participant.entity';
 import { ChatMessageEntity } from './entities/chat-message.entity';
 import { ModerationModule } from '../moderation/moderation.module';
+import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ModerationModule } from '../moderation/moderation.module';
       ChatMessageEntity,
     ]),
     ModerationModule,
+    SettingsModule,
     ConfigModule,
     JwtModule.registerAsync({
       inject: [ConfigService],

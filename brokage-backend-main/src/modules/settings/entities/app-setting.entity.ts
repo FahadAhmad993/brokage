@@ -43,6 +43,14 @@ export class AppSettingEntity {
   @Column({ type: 'boolean', default: true })
   areaRequired!: boolean;
 
+  /**
+   * How many days a chat message (community group chat OR private DM)
+   * lives before `ChatRetentionService`'s daily sweep permanently deletes
+   * it from Postgres. Admin-editable via `PATCH /admin/settings`.
+   */
+  @Column({ type: 'int', default: 20 })
+  chatRetentionDays!: number;
+
   @CreateDateColumn()
   createdAt!: Date;
 

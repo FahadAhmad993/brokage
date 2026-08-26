@@ -75,6 +75,48 @@ export class CommunityPostContextDto {
 
 
 
+export class ReplyToCommunityMessageDto {
+  @ApiProperty({ example: '2f4b7c...', description: 'id of the original community message' })
+  @IsUUID()
+  messageId!: string;
+
+  @ApiProperty({ example: '2f4b7c...', description: 'id of the community thread the original message came from' })
+  @IsUUID()
+  threadId!: string;
+
+  @ApiProperty({ example: 'Real Estate community' })
+  @IsString()
+  @MaxLength(200)
+  threadTitle!: string;
+
+  @ApiProperty({ example: 'Anyone renting near DHA phase 5?' })
+  @IsString()
+  @MaxLength(500)
+  body!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  imageUrl?: string;
+
+  @ApiProperty({ example: '2f4b7c...' })
+  @IsUUID()
+  authorId!: string;
+
+  @ApiPropertyOptional({ example: 'Fahad Ahmad' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  authorName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  authorAvatarUrl?: string;
+}
+
 export class SendMessageDto {
   @ApiProperty({ example: 'Hi, is this listing still available?' })
   @IsString()
@@ -139,5 +181,16 @@ imageUrl?: string;
 @Type(() => CommunityPostContextDto)
 communityPostContext?: CommunityPostContextDto;
 
+
+@ApiPropertyOptional({
+  type: () => ReplyToCommunityMessageDto,
+  description:
+    'WhatsApp-style "Reply Privately" quote of the community message this private message replies to. NOT the message body — the composer stays empty and this renders as its own preview.',
+})
+@IsOptional()
+@IsObject()
+@ValidateNested()
+@Type(() => ReplyToCommunityMessageDto)
+replyToCommunityMessage?: ReplyToCommunityMessageDto;
 
 }

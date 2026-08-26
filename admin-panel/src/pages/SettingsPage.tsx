@@ -4,6 +4,8 @@ import { PageHeader } from '../components/PageHeader';
 import {
   fetchSettings,
   updateSettings,
+  deleteAllCommunityMessages,
+  deleteAllPrivateMessages,
   type CustomPostField,
   type UpdateAppSettingsInput,
 } from '../api/admin';
@@ -23,6 +25,7 @@ export function SettingsPage() {
   const [cityRequired, setCityRequired] = useState(true);
   const [areaRequired, setAreaRequired] = useState(true);
   const [customFields, setCustomFields] = useState<CustomPostField[]>([]);
+  const [chatRetentionDays, setChatRetentionDays] = useState('20');
   const [savedMsg, setSavedMsg] = useState(false);
 
   // Populate the form once settings load, and again if they change
@@ -36,6 +39,7 @@ export function SettingsPage() {
     setCityRequired(s.cityRequired);
     setAreaRequired(s.areaRequired);
     setCustomFields(s.customFields ?? []);
+    setChatRetentionDays(String(s.chatRetentionDays ?? 20));
   }, [settingsQuery.data]);
 
   const saveMutation = useMutation({
@@ -47,15 +51,25 @@ export function SettingsPage() {
     },
   });
 
+  const deleteCommunityMutation = useMutation({
+    mutationFn: deleteAllCommunityMessages,
+  });
+
+  const deletePrivateMutation = useMutation({
+    mutationFn: deleteAllPrivateMessages,
+  });
+
   const durationForOneAd24h = Number(pricePerHourPkr || 0) * 24;
 
   const onSave = () => {
     const price = Number(pricePerHourPkr);
     const min = Number(minImages);
     const max = Number(maxImages);
+    const retentionDays = Number(chatRetentionDays);
     if (!Number.isFinite(price) || price < 0) return;
     if (!Number.isInteger(min) || min < 1) return;
     if (!Number.isInteger(max) || max < min) return;
+    if (!Number.isInteger(retentionDays) || retentionDays < 1) return;
 
     const cleanedFields = customFields
       .map((f) => ({ ...f, key: f.key.trim(), label: f.label.trim() }))
@@ -68,7 +82,30 @@ export function SettingsPage() {
       cityRequired,
       areaRequired,
       customFields: cleanedFields,
+      chatRetentionDays: retentionDays,
     });
+  };
+
+  const onDeleteAllCommunityChats = () => {
+    if (
+      !window.confirm(
+        'This permanently deletes every message in every community chat, for every user. This cannot be undone. Continue?',
+      )
+    ) {
+      return;
+    }
+    deleteCommunityMutation.mutate();
+  };
+
+  const onDeleteAllPrivateChats = () => {
+    if (
+      !window.confirm(
+        "This permanently deletes every user's private chat messages. User accounts and contacts are kept, so people can message each other again afterwards. This cannot be undone. Continue?",
+      )
+    ) {
+      return;
+    }
+    deletePrivateMutation.mutate();
   };
 
   const updateField = (index: number, patch: Partial<CustomPostField>) => {
@@ -213,6 +250,77 @@ export function SettingsPage() {
             >
               + Add custom field
             </button>
+          </section>
+
+          <section className="settings-section">
+            <h3>Chat auto-delete</h3>
+            <p className="settings-hint">
+              Every chat message — community and private alike — is permanently deleted from the
+              database this many days after it's sent. This runs automatically on the server, even
+              if no one has the app open.
+            </p>
+            <label className="field-label">Delete messages after (days)</label>
+            <input
+              className="field-input"
+              type="number"
+              min={1}
+              step="1"
+              value={chatRetentionDays}
+              onChange={(e) => setChatRetentionDays(e.target.value)}
+            />
+          </section>
+
+          <section className="settings-section">
+            <h3>Chat management</h3>
+            <p className="settings-hint">
+              Manually and permanently wipe chat history. Communities, private threads, and user
+              profiles are always kept — only the messages inside them are deleted from the
+              database. This cannot be undone.
+            </p>
+
+            <div className="settings-row">
+              <div>
+                <button
+                  type="button"
+                  className="btn btn--danger"
+                  disabled={deleteCommunityMutation.isPending}
+                  onClick={onDeleteAllCommunityChats}
+                >
+                  {deleteCommunityMutation.isPending ? 'Deleting…' : 'Delete community chat'}
+                </button>
+                {deleteCommunityMutation.isSuccess ? (
+                  <p className="settings-hint">
+                    Deleted {deleteCommunityMutation.data.deleted} message(s).
+                  </p>
+                ) : null}
+                {deleteCommunityMutation.isError ? (
+                  <div className="form-error">
+                    {errorMessage(deleteCommunityMutation.error, 'Could not delete community chat.')}
+                  </div>
+                ) : null}
+              </div>
+
+              <div>
+                <button
+                  type="button"
+                  className="btn btn--danger"
+                  disabled={deletePrivateMutation.isPending}
+                  onClick={onDeleteAllPrivateChats}
+                >
+                  {deletePrivateMutation.isPending ? 'Deleting…' : 'Delete private chats'}
+                </button>
+                {deletePrivateMutation.isSuccess ? (
+                  <p className="settings-hint">
+                    Deleted {deletePrivateMutation.data.deleted} message(s).
+                  </p>
+                ) : null}
+                {deletePrivateMutation.isError ? (
+                  <div className="form-error">
+                    {errorMessage(deletePrivateMutation.error, 'Could not delete private chats.')}
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </section>
 
           {saveMutation.isError ? (

@@ -7,12 +7,16 @@ import {
   Info,
   KeyRound,
   LogOut,
+  ShieldOff,
   SquarePen,
+  Trash2,
 } from 'lucide-react-native';
 import React from 'react';
 // Switch re-enabled with the Communications section.
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ScreenScroll } from '../../components/ScreenScroll';
+import { useAppAlert, useAppToast } from '../../components/appAlert';
+import { deleteAccount, errorMessage } from '../../api/client';
 import {
   APP_NAME,
   APP_VERSION,
@@ -36,9 +40,48 @@ export function SettingsScreen() {
   const navigation = useNavigation<Nav>();
   const queryClient = useQueryClient();
   const setUser = useAuthStore(s => s.setUser);
+  const alert = useAppAlert();
+  const toast = useAppToast();
+  const [deletingAccount, setDeletingAccount] = React.useState(false);
   // Preferences are read by the hidden Communications section.
   // const prefs = usePreferencesStore(s => s.prefs);
   // const setPrefs = usePreferencesStore(s => s.setPrefs);
+
+  const runDeleteAccount = async () => {
+    setDeletingAccount(true);
+    try {
+      await deleteAccount();
+      queryClient.clear();
+      await setUser(null);
+      toast({
+        title: 'Account deleted',
+        message: 'Your account and all its data have been permanently removed.',
+        kind: 'success',
+      });
+    } catch (error) {
+      setDeletingAccount(false);
+      alert({
+        title: 'Could not delete account',
+        message: errorMessage(error, 'Please try again in a moment.'),
+      });
+    }
+  };
+
+  const onDeleteAccountPress = () => {
+    alert({
+      title: 'Delete account?',
+      message:
+        'This permanently deletes your account, profile, listings, and every message — this cannot be undone.',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete permanently',
+          style: 'destructive',
+          onPress: runDeleteAccount,
+        },
+      ],
+    });
+  };
 
   return (
     <ScreenScroll>
@@ -76,6 +119,19 @@ export function SettingsScreen() {
           title="Change password"
           subtitle="Update your sign-in password"
           onPress={() => navigation.navigate('ChangePassword')}
+        />
+        <View style={styles.hairline} />
+        <SettingsLinkRow
+          icon={
+            <ShieldOff
+              color={colors.primary}
+              size={iconSize.md}
+              strokeWidth={iconStroke}
+            />
+          }
+          title="Blocked users"
+          subtitle="Manage who you've blocked"
+          onPress={() => navigation.navigate('BlockedUsers')}
           isLast
         />
       </View>
@@ -139,6 +195,32 @@ export function SettingsScreen() {
             strokeWidth={iconStroke}
           />
           <Text style={styles.logoutText}>Log out</Text>
+        </Pressable>
+      </View>
+
+      <Text style={[screenStyles.sectionOverline, styles.sectionLabel, styles.dangerLabel]}>
+        Danger Zone
+      </Text>
+      <View style={[styles.card, styles.dangerCard]}>
+        <Pressable
+          style={({ pressed }) => [styles.logoutRow, pressed && styles.pressed]}
+          onPress={onDeleteAccountPress}
+          disabled={deletingAccount}
+          accessibilityRole="button"
+          accessibilityLabel="Delete account">
+          {deletingAccount ? (
+            <ActivityIndicator color={colors.danger} size="small" />
+          ) : (
+            <Trash2 color={colors.danger} size={iconSize.md} strokeWidth={iconStroke} />
+          )}
+          <View style={styles.linkTextCol}>
+            <Text style={styles.logoutText}>
+              {deletingAccount ? 'Deleting account…' : 'Delete account'}
+            </Text>
+            <Text style={styles.dangerSub}>
+              Permanently erases your account and all messages. Can't be undone.
+            </Text>
+          </View>
         </Pressable>
       </View>
 
@@ -366,5 +448,14 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.danger,
     fontWeight: '600',
+  },
+  dangerLabel: { color: colors.danger },
+  dangerCard: {
+    borderColor: colors.danger,
+  },
+  dangerSub: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: 2,
   },
 });

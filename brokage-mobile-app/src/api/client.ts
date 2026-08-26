@@ -561,6 +561,7 @@ export async function sendChatMessage(
   locationContext?: ChatMessage['locationContext'],
   imageUrl?: string,
   communityPostContext?: ChatMessage['communityPostContext'],
+  replyToCommunityMessage?: ChatMessage['replyToCommunityMessage'],
 ): Promise<ChatMessage> {
   if (API_MODE === 'live') {
     const socket = await connectChatSocket();
@@ -573,6 +574,7 @@ export async function sendChatMessage(
       locationContext?: ChatMessage['locationContext'];
       imageUrl?: string;
       communityPostContext?: ChatMessage['communityPostContext'];
+      replyToCommunityMessage?: ChatMessage['replyToCommunityMessage'];
     } = { threadId, body: trimmed, clientId };
 
     const restPayload: {
@@ -581,6 +583,7 @@ export async function sendChatMessage(
       locationContext?: ChatMessage['locationContext'];
       imageUrl?: string;
       communityPostContext?: ChatMessage['communityPostContext'];
+      replyToCommunityMessage?: ChatMessage['replyToCommunityMessage'];
     } = { body: trimmed, clientId };
 
     if (locationContext) {
@@ -595,6 +598,10 @@ if (communityPostContext) {
  
   sendPayload.communityPostContext = communityPostContext;
 restPayload.communityPostContext = communityPostContext;
+}
+if (replyToCommunityMessage) {
+  sendPayload.replyToCommunityMessage = replyToCommunityMessage;
+  restPayload.replyToCommunityMessage = replyToCommunityMessage;
 }
 
     if (socket && socket.connected) {
@@ -645,6 +652,8 @@ restPayload.communityPostContext = communityPostContext;
   body: string;
   locationContext?: ChatMessage['locationContext'];
   imageUrl?: string;
+  communityPostContext?: ChatMessage['communityPostContext'];
+  replyToCommunityMessage?: ChatMessage['replyToCommunityMessage'];
 } = {
    body: restPayload.body 
   };
@@ -655,6 +664,12 @@ if (restPayload.locationContext) {
 
 if (imageUrl) {
   retryPayload.imageUrl = imageUrl;
+}
+if (communityPostContext) {
+  retryPayload.communityPostContext = communityPostContext;
+}
+if (replyToCommunityMessage) {
+  retryPayload.replyToCommunityMessage = replyToCommunityMessage;
 }
         data = await apiRequest<ChatMessage>(
           `/chats/threads/${threadId}/messages`,
@@ -680,6 +695,8 @@ if (imageUrl) {
     clientId,
     ...(locationContext ? { locationContext } : {}),
     ...(imageUrl ? { imageUrl } : {}),
+    ...(communityPostContext ? { communityPostContext } : {}),
+    ...(replyToCommunityMessage ? { replyToCommunityMessage } : {}),
   };
   appendMessage(threadId, msg);
   return msg;
@@ -916,6 +933,32 @@ export async function changePassword(currentPassword: string, newPassword: strin
     method: 'PATCH',
     body: JSON.stringify({ currentPassword, newPassword }),
   });
+}
+
+/**
+ * Permanently deletes the current user's account and all associated data
+ * (messages, threads, listings, etc. — server-side cascade). Irreversible.
+ * Caller is responsible for signing the user out locally afterwards
+ * (`useAuthStore.setUser(null)`), same as any other account-ending action.
+ */
+export async function deleteAccount() {
+  if (API_MODE !== 'live') {
+    return;
+  }
+  await apiRequest('/users/me', { method: 'DELETE' });
+}
+
+/**
+ * "Delete chat" — removes a thread from the current user's own inbox list
+ * only. The other participant(s) and the thread's messages are untouched;
+ * the thread reappears for this user automatically if someone sends a new
+ * message into it.
+ */
+export async function deleteChatThread(threadId: string) {
+  if (API_MODE !== 'live') {
+    return;
+  }
+  await apiRequest(`/chats/threads/${threadId}`, { method: 'DELETE' });
 }
 
 /** Throttle noisy reconnect logs (same failure spamming every retry). */

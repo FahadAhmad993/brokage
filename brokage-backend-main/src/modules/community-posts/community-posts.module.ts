@@ -23,6 +23,7 @@ import {
   } from '../users/entities/user.entity';
 
 import { SettingsModule } from '../settings/settings.module';
+import { CloudinaryCleanupService } from './cloudinary-cleanup.service';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { SettingsModule } from '../settings/settings.module';
 
   providers: [
     CommunityPostsService,
+    CloudinaryCleanupService,
   ],
 
   exports: [

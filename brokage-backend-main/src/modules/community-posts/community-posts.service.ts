@@ -5,6 +5,7 @@ import { LessThan, Repository } from 'typeorm';
 import { CommunityPostEntity } from './entities/community-post.entity';
 import { CreateCommunityPostDto } from './dto/create-community-post.dto';
 import { SettingsService } from '../settings/settings.service';
+import { CloudinaryCleanupService } from './cloudinary-cleanup.service';
 
 @Injectable()
 export class CommunityPostsService {
@@ -12,6 +13,7 @@ export class CommunityPostsService {
     @InjectRepository(CommunityPostEntity)
     private readonly postRepository: Repository<CommunityPostEntity>,
     private readonly settingsService: SettingsService,
+    private readonly cloudinaryCleanupService: CloudinaryCleanupService,
   ) {}
 
   /** PKR for a given duration, at the admin's current per-hour rate. */
@@ -231,12 +233,26 @@ export class CommunityPostsService {
     return { success: true, id: post.id, status: post.status };
   }
 
-  /** Admin can pull any ad down immediately (abuse, mistake, etc.). */
+  /**
+   * Admin can pull any ad down immediately (abuse, mistake, etc.).
+   * Permanently removes the database row AND best-effort deletes the ad's
+   * images from Cloudinary storage — this is a real delete, not a hide.
+   */
   async remove(id: string) {
+    const post = await this.postRepository.findOne({
+      where: { id },
+      select: { id: true, images: true },
+    });
+    if (!post) {
+      throw new NotFoundException('Ad not found');
+    }
     const result = await this.postRepository.delete({ id });
     if (!result.affected) {
       throw new NotFoundException('Ad not found');
     }
+    // Fire-and-forget-ish, but awaited so failures are logged; never blocks
+    // or reverts the already-committed database deletion above.
+    await this.cloudinaryCleanupService.deleteImages(post.images ?? []);
     return { success: true };
   }
 }
