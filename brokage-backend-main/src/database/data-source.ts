@@ -11,6 +11,9 @@ import { UserBlockEntity } from '../modules/moderation/entities/user-block.entit
 import { ContentReportEntity } from '../modules/moderation/entities/content-report.entity';
 import { CommunityPostEntity } from '../modules/community-posts/entities/community-post.entity';
 import { AppSettingEntity } from '../modules/settings/entities/app-setting.entity';
+import { DisplayPostEntity } from '../modules/display/entities/display-post.entity';
+import { DisplayProfileEntity } from '../modules/display/entities/display-profile.entity';
+import { OtpCodeEntity } from '../modules/auth/entities/otp-code.entity';
 
 export default new DataSource({
   type: 'postgres',
@@ -29,8 +32,11 @@ export default new DataSource({
     ChatMessageEntity,
     UserBlockEntity,
     ContentReportEntity,
-     CommunityPostEntity,
+    CommunityPostEntity,
     AppSettingEntity,
+    DisplayPostEntity,
+    DisplayProfileEntity,
+    OtpCodeEntity,
   ],
   migrations: ['src/database/migrations/*{.ts,.js}'],
 });

@@ -8,9 +8,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *                   separate flag so the admin UI can distinguish "blocked
  *                   for abuse" from "disabled pending review".
  */
-export class AddUserAdminAndModerationFlags1787300000000
-  implements MigrationInterface
-{
+export class AddUserAdminAndModerationFlags1787300000000 implements MigrationInterface {
   name = 'AddUserAdminAndModerationFlags1787300000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

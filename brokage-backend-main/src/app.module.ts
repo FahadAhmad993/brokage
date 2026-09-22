@@ -24,14 +24,14 @@ import { ChatMessageEntity } from './modules/chats/entities/chat-message.entity'
 import { UserBlockEntity } from './modules/moderation/entities/user-block.entity';
 import { ContentReportEntity } from './modules/moderation/entities/content-report.entity';
 import { JwtAuthMiddleware } from './common/middleware/jwt-auth.middleware';
-import {
-  CommunityPostsModule,
-} from './modules/community-posts/community-posts.module';
-import {
-  CommunityPostEntity,
-} from './modules/community-posts/entities/community-post.entity';
+import { CommunityPostsModule } from './modules/community-posts/community-posts.module';
+import { CommunityPostEntity } from './modules/community-posts/entities/community-post.entity';
 import { AppSettingEntity } from './modules/settings/entities/app-setting.entity';
 import { AdminModule } from './modules/admin/admin.module';
+import { DisplayModule } from './modules/display/display.module';
+import { DisplayPostEntity } from './modules/display/entities/display-post.entity';
+import { DisplayProfileEntity } from './modules/display/entities/display-profile.entity';
+import { OtpCodeEntity } from './modules/auth/entities/otp-code.entity';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -52,6 +52,14 @@ import { AdminModule } from './modules/admin/admin.module';
         CORS_ORIGIN: Joi.string().default('*'),
         THROTTLE_TTL_MS: Joi.number().default(60_000),
         THROTTLE_LIMIT: Joi.number().default(120),
+        // Optional at boot (so the app still starts without it) but
+        // required in practice the moment anyone tries to register/log
+        // in — EmailService throws a clear error at send-time if it's
+        // missing rather than here, since some deployments (CI, one-off
+        // scripts) never need to send an email at all.
+        BREVO_API_KEY: Joi.string().allow('').default(''),
+        BREVO_SENDER_EMAIL: Joi.string().default('no-reply@brokage.app'),
+        BREVO_SENDER_NAME: Joi.string().default('Brokage'),
       }),
     }),
     ThrottlerModule.forRootAsync({
@@ -74,7 +82,6 @@ import { AdminModule } from './modules/admin/admin.module';
         username: configService.get<string>('DB_USER', 'postgres'),
         password: configService.get<string>('DB_PASSWORD', 'postgres'),
         database: configService.get<string>('DB_NAME', 'sanctuary'),
-      
 
         synchronize: configService.get<boolean>('DB_SYNC', false),
         logging: configService.get<boolean>('DB_LOGGING', false),
@@ -109,6 +116,9 @@ import { AdminModule } from './modules/admin/admin.module';
           ContentReportEntity,
           CommunityPostEntity,
           AppSettingEntity,
+          DisplayPostEntity,
+          DisplayProfileEntity,
+          OtpCodeEntity,
         ],
       }),
     }),
@@ -118,6 +128,7 @@ import { AdminModule } from './modules/admin/admin.module';
     ChatsModule,
     ModerationModule,
     CommunityPostsModule,
+    DisplayModule,
     AdminModule,
   ],
   controllers: [AppController],
@@ -138,7 +149,9 @@ export class AppModule implements NestModule {
         { path: 'chats/(.*)', method: RequestMethod.ALL },
         { path: 'properties', method: RequestMethod.POST },
         { path: 'community/posts', method: RequestMethod.ALL },
-{ path: 'community/posts/(.*)', method: RequestMethod.ALL },
+        { path: 'community/posts/(.*)', method: RequestMethod.ALL },
+        { path: 'display', method: RequestMethod.ALL },
+        { path: 'display/(.*)', method: RequestMethod.ALL },
         { path: 'admin/(.*)', method: RequestMethod.ALL },
       );
   }

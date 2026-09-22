@@ -9,6 +9,7 @@ import { layout } from '../theme/layout';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
+import { useThemedStyles } from '../hooks/useThemedStyles';
 
 type Props = {
   item: ManagedListing;
@@ -23,6 +24,7 @@ export function ManagedListingRow({
   onToggleStatus,
   onRemove,
 }: Props) {
+  const styles = useThemedStyles(buildStyles);
   const alert = useAppAlert();
   const statusLabel = item.status === 'live' ? 'Live' : 'Paused';
 
@@ -141,7 +143,7 @@ export function ManagedListingRow({
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: layout.radius.lg,

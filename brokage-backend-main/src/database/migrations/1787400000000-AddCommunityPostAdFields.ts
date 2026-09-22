@@ -16,9 +16,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *                          'expired' and stops showing to other users.
  *  - `rejectionReason`   — optional note shown to the user if declined.
  */
-export class AddCommunityPostAdFields1787400000000
-  implements MigrationInterface
-{
+export class AddCommunityPostAdFields1787400000000 implements MigrationInterface {
   name = 'AddCommunityPostAdFields1787400000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

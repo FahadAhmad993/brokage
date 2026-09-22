@@ -36,12 +36,25 @@ export class CustomPostFieldDto {
 }
 
 export class UpdateAppSettingsDto {
-  @ApiPropertyOptional({ example: 1, description: 'PKR charged per hour an ad runs' })
+  @ApiPropertyOptional({
+    example: 1,
+    description: 'PKR charged per hour an ad runs',
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Max(100000)
   pricePerHourPkr?: number;
+
+  @ApiPropertyOptional({
+    example: 1,
+    description: 'PKR charged per hour a Display post runs',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100000)
+  displayPricePerHourPkr?: number;
 
   @ApiPropertyOptional({ example: 2 })
   @IsOptional()

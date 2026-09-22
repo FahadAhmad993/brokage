@@ -13,15 +13,17 @@ import { errorMessage, mockLogin } from '../../api/client';
 import type { AuthStackParamList } from '../../navigation/types';
 import { useAuthStore } from '../../stores/authStore';
 import { saveCredentials } from '../../stores/credentialsStore';
-import { authScreenStyles } from '../../theme/authScreenStyles';
+import { getAuthScreenStyles } from '../../theme/authScreenStyles';
 import { colors } from '../../theme/colors';
 import { layout } from '../../theme/layout';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
 export function LoginScreen() {
+  const styles = useThemedStyles(buildStyles);
   const alert = useAppAlert();
   const navigation = useNavigation<Nav>();
   const setUser = useAuthStore(s => s.setUser);
@@ -30,9 +32,17 @@ export function LoginScreen() {
 
   const login = useMutation({
     mutationFn: () => mockLogin(email.trim(), password),
-    onSuccess: async user => {
-      await saveCredentials(user.id, password);
-      await setUser(user);
+    onSuccess: async result => {
+      if (result.status === 'verified') {
+        await saveCredentials(result.user.id, password);
+        await setUser(result.user);
+        return;
+      }
+      navigation.navigate('VerifyOtp', {
+        email: result.email,
+        purpose: result.purpose,
+        password,
+      });
     },
     onError: error => {
       alert({
@@ -48,7 +58,7 @@ export function LoginScreen() {
         <AuthDecor />
         <View style={styles.main}>
           <View style={styles.brand}>
-            <View style={authScreenStyles.logoMark}>
+            <View style={getAuthScreenStyles().logoMark}>
               <BrokageLogo width={28} height={34} />
             </View>
             <Text style={styles.appName}>Brokage</Text>
@@ -57,7 +67,7 @@ export function LoginScreen() {
             </Text>
           </View>
 
-          <View style={[authScreenStyles.card, styles.cardFields]}>
+          <View style={[getAuthScreenStyles().card, styles.cardFields]}>
             <TextField
               label="Email Address"
               value={email}
@@ -143,7 +153,7 @@ export function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   decorWrap: { position: 'relative', flexGrow: 1 },
   main: { paddingTop: spacing.lg, gap: spacing.xl },
   brand: { alignItems: 'center', gap: spacing.sm },

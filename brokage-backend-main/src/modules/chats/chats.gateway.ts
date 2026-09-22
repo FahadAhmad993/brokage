@@ -60,15 +60,12 @@ function readImageUrl(value: unknown): string | undefined {
   return trimmed;
 }
 
-
 /**
  * Socket payload doesn't go through class-validator, so we sanity-check
  * lat/lng ranges here. Any malformed payload silently degrades to a plain
  * message (no attachment) rather than 500ing the gateway.
  */
-function readLocationContext(
-  value: unknown,
-): ChatLocationRefDto | undefined {
+function readLocationContext(value: unknown): ChatLocationRefDto | undefined {
   if (!value || typeof value !== 'object') {
     return undefined;
   }
@@ -322,32 +319,34 @@ export class ChatsGateway
     @ConnectedSocket() client: Socket,
     @MessageBody()
     payload: {
-  threadId: string;
-  body: string;
-  clientId?: string;
-  locationContext?: ChatLocationRefDto;
-  imageUrl?: string;
-  communityPostContext?: {
-    id: string;
-    title: string;
-    description: string;
-    city: string;
-    images: string[];
-    authorId: string;
-    authorName?: string | null;
-    authorAvatarUrl?: string | null;
-  };
-  replyToCommunityMessage?: {
-    messageId: string;
-    threadId: string;
-    threadTitle: string;
-    body: string;
-    imageUrl?: string | null;
-    authorId: string;
-    authorName?: string | null;
-    authorAvatarUrl?: string | null;
-  };
-},
+      threadId: string;
+      body: string;
+      clientId?: string;
+      locationContext?: ChatLocationRefDto;
+      imageUrl?: string;
+      communityPostContext?: {
+        id: string;
+        title: string;
+        description: string;
+        city: string;
+        images: string[];
+        authorId: string;
+        authorName?: string | null;
+        authorAvatarUrl?: string | null;
+        kind?: 'community' | 'display';
+        marlaSize?: number;
+      };
+      replyToCommunityMessage?: {
+        messageId: string;
+        threadId: string;
+        threadTitle: string;
+        body: string;
+        imageUrl?: string | null;
+        authorId: string;
+        authorName?: string | null;
+        authorAvatarUrl?: string | null;
+      };
+    },
   ) {
     const { user } = readSocketData(client);
     if (!payload?.threadId?.trim()) {

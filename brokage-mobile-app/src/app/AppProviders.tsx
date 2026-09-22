@@ -1,15 +1,27 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import NetInfo from '@react-native-community/netinfo';
 import { NavigationContainer } from '@react-navigation/native';
 import {
   QueryClient,
-  QueryClientProvider,
   onlineManager,
+  type Query,
 } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import React, { useEffect, useMemo } from 'react';
 import { StatusBar } from 'react-native';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
-import { connectChatSocket, disconnectChatSocket } from '../api/client';
+import { connectChatSocket, disconnectChatSocket, sendChatMessage } from '../api/client';
 import { subscribeChatRealtimeSync } from '../chat/chatRealtimeSync';
+import {
+  removeOutboxMessage,
+  startOutboxAutoFlush,
+  stopOutboxAutoFlush,
+  type OutboxMessage,
+} from '../chat/offlineOutbox';
+import { mergeIncomingIntoMessagesInfinite } from '../chat/messagePages';
+import type { MessagesPageResult } from '../chat/messagePages';
+import type { InfiniteData } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppAlertProvider } from '../components/appAlert';
 import { logger } from '../lib/logger';
@@ -19,7 +31,22 @@ import { useAuthStore } from '../stores/authStore';
 import { useFavoritesStore } from '../stores/favoritesStore';
 import { useMyListingsStore } from '../stores/myListingsStore';
 import { usePreferencesStore } from '../stores/preferencesStore';
-import { navigationTheme } from '../theme/navigationTheme';
+import { getNavigationTheme } from '../theme/navigationTheme';
+import { colors } from '../theme/colors';
+
+/**
+ * Only these query "families" are worth writing to disk. Skipping the rest
+ * (e.g. one-off search results, image-upload signatures) keeps the persisted
+ * blob small and avoids stale non-chat data resurrecting on cold start.
+ * `threads`, `messages`, and `communityPosts` are exactly what WhatsApp-style
+ * "open the app offline and still see your last conversation" needs.
+ */
+const PERSISTED_QUERY_KEY_PREFIXES = ['threads', 'messages', 'community-posts'];
+
+function shouldPersistQuery(query: Query): boolean {
+  const key = query.queryKey[0];
+  return typeof key === 'string' && PERSISTED_QUERY_KEY_PREFIXES.includes(key);
+}
 
 export function AppProviders() {
   const queryClient = useMemo(
@@ -28,7 +55,7 @@ export function AppProviders() {
         defaultOptions: {
           queries: {
             staleTime: 60 * 1000,
-            gcTime: 10 * 60 * 1000,
+            gcTime: 24 * 60 * 60 * 1000, // keep persisted chat data around for a full day offline
             retry: 2,
             refetchOnWindowFocus: false,
             networkMode: 'online',
@@ -41,8 +68,23 @@ export function AppProviders() {
     [],
   );
 
+  /** AsyncStorage-backed cache persister — this is what makes the inbox and
+   *  community feed show their last-known content immediately on a cold
+   *  start with no connection, the same way WhatsApp opens straight into
+   *  your last synced chats instead of a blank screen. */
+  const persister = useMemo(
+    () =>
+      createAsyncStoragePersister({
+        storage: AsyncStorage,
+        key: 'brokage-query-cache',
+        throttleTime: 1000,
+      }),
+    [],
+  );
+
   const hydrateAuth = useAuthStore(s => s.hydrate);
-  const userId = useAuthStore(s => s.user?.id);
+  const user = useAuthStore(s => s.user);
+  const userId = user?.id;
   const hydratePrefs = usePreferencesStore(s => s.hydrate);
   const hydrateFavorites = useFavoritesStore(s => s.hydrate);
   const hydrateMyListings = useMyListingsStore(s => s.hydrate);
@@ -89,8 +131,68 @@ export function AppProviders() {
     return subscribeChatRealtimeSync(queryClient, userId);
   }, [queryClient, userId]);
 
+  /**
+   * App-wide offline outbox: the moment `NetInfo` reports the device back
+   * online, flush every thread's pending queue (oldest message first). This
+   * is what makes "typed while on the subway with no signal" messages send
+   * themselves automatically the moment the connection returns — the same
+   * single-tick → double-tick transition WhatsApp shows, with no user
+   * action needed and no message ever silently lost.
+   */
+  useEffect(() => {
+    if (!user) {
+      stopOutboxAutoFlush();
+      return;
+    }
+    startOutboxAutoFlush(
+      (item: OutboxMessage) =>
+        sendChatMessage(
+          item.threadId,
+          user,
+          item.body,
+          item.clientId,
+          item.locationContext,
+          item.imageUrl,
+          undefined,
+          item.replyToCommunityMessage,
+        ),
+      {
+        onSent: (item, message) => {
+          queryClient.setQueryData<InfiniteData<MessagesPageResult> | undefined>(
+            ['messages', item.threadId, user.id],
+            prev => mergeIncomingIntoMessagesInfinite(prev, { ...message, status: 'sent' }),
+          );
+        },
+        onFailed: (item, err) => {
+          logger.warn('offlineOutbox: message permanently failed', item.clientId, err);
+          queryClient.setQueryData<InfiniteData<MessagesPageResult> | undefined>(
+            ['messages', item.threadId, user.id],
+            prev =>
+              prev && {
+                ...prev,
+                pages: prev.pages.map(page => ({
+                  ...page,
+                  items: page.items.map(m =>
+                    m.clientId === item.clientId ? { ...m, status: 'failed' as const } : m,
+                  ),
+                })),
+              },
+          );
+          void removeOutboxMessage(item.threadId, item.clientId);
+        },
+      },
+    );
+    return () => stopOutboxAutoFlush();
+  }, [queryClient, user]);
+
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister,
+        maxAge: 24 * 60 * 60 * 1000,
+        dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
+      }}>
       <SafeAreaProvider>
         {/* `KeyboardProvider` installs native keyboard listeners that drive
            the library's `KeyboardAvoidingView`, `KeyboardStickyView`,
@@ -113,12 +215,12 @@ export function AppProviders() {
                and SafeAreaView edges=['top'] reserves the inset. Light
                foreground = white status icons over our dark surface. */}
             <StatusBar
-              barStyle="light-content"
+              barStyle={colors.isDark ? 'light-content' : 'dark-content'}
               backgroundColor="transparent"
               translucent
             />
             <NavigationContainer
-              theme={navigationTheme}
+              theme={getNavigationTheme()}
               linking={linking}
               onUnhandledAction={action => {
                 logger.warn('Unhandled navigation action', action);
@@ -128,6 +230,6 @@ export function AppProviders() {
           </AppAlertProvider>
         </KeyboardProvider>
       </SafeAreaProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }

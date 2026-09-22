@@ -3,6 +3,8 @@
 .DS_Store
 
 .env
+.env.production
+.env.testing
 
 # Xcode
 #

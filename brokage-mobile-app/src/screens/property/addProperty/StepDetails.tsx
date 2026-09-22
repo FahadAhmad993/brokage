@@ -10,8 +10,10 @@ import { spacing } from '../../../theme/spacing';
 import { typography } from '../../../theme/typography';
 import { CATEGORY_OPTIONS } from './constants';
 import { fieldStyles } from './fieldStyles';
+import { useThemedStyles } from '../../../hooks/useThemedStyles';
 
 export function StepDetails() {
+  const styles = useThemedStyles(buildStyles);
   const {
     control,
     formState: { errors },
@@ -175,7 +177,7 @@ export function StepDetails() {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   block: { gap: 0 },
   mt: { marginTop: spacing.lg },
   inputErr: {

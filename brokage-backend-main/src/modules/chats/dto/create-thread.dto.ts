@@ -68,9 +68,6 @@ export class CreateThreadDto {
   relatedListingSnapshot?: RelatedListingSnapshotDto;
 }
 
-
-
-
 //comment data 1
 
 // import { IsIn, IsOptional, IsString, IsUUID } from 'class-validator';

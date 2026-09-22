@@ -21,7 +21,7 @@ export function reconcileMessage(
       m.threadId === incoming.threadId &&
       m.authorId === incoming.authorId &&
       m.body.trim() === incoming.body.trim() &&
-      m.status === 'sending';
+      (m.status === 'sending' || m.status === 'queued');
     const candidates = items
       .map((m, i) => ({ m, i }))
       .filter(({ m }) => bodyMatch(m));

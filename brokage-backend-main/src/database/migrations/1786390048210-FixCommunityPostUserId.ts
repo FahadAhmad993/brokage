@@ -11,9 +11,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * exist yet, or when `userId` is already `uuid` (e.g. created fresh via
  * `synchronize: true` in an earlier dev session, or already migrated).
  */
-export class FixCommunityPostUserId1786390048210
-  implements MigrationInterface
-{
+export class FixCommunityPostUserId1786390048210 implements MigrationInterface {
   name = 'FixCommunityPostUserId1786390048210';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

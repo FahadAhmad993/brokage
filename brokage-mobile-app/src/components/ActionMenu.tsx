@@ -11,6 +11,7 @@ import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 import { layout } from '../theme/layout';
+import { useThemedStyles } from '../hooks/useThemedStyles';
 
 export type ActionMenuItem = {
   label: string;
@@ -39,6 +40,7 @@ export function ActionMenu({
   /** Whether the menu's right or left edge lines up with `anchor.x`. */
   align?: 'left' | 'right';
 }) {
+  const styles = useThemedStyles(buildStyles);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
   if (!visible || !anchor) {
@@ -89,7 +91,7 @@ export function ActionMenu({
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'transparent',

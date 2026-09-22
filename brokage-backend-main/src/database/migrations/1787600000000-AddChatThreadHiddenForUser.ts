@@ -9,9 +9,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * afterwards, `hiddenAt` is cleared for the recipient so the thread
  * reappears — mirrors WhatsApp's "delete chat" behavior.
  */
-export class AddChatThreadHiddenForUser1787600000000
-  implements MigrationInterface
-{
+export class AddChatThreadHiddenForUser1787600000000 implements MigrationInterface {
   name = 'AddChatThreadHiddenForUser1787600000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

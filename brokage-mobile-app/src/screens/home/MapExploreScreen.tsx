@@ -7,8 +7,10 @@ import { colors } from '../../theme/colors';
 import { iconSize, iconStroke } from '../../theme/icons';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 
 export function MapExploreScreen() {
+  const styles = useThemedStyles(buildStyles);
   const navigation = useNavigation();
   return (
     <ScreenScroll>
@@ -33,7 +35,7 @@ export function MapExploreScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   title: {
     ...typography.displayMedium,
     color: colors.textPrimary,

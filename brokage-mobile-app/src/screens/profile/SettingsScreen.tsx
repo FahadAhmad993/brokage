@@ -1,12 +1,15 @@
 import { useNavigation } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 // Bell re-enabled with the Communications section.
 import {
+  Check,
   ChevronRight,
   Info,
   KeyRound,
   LogOut,
+  Palette,
   ShieldOff,
   SquarePen,
   Trash2,
@@ -25,14 +28,18 @@ import {
 } from '../../config/appConfig';
 import type { MainStackParamList } from '../../navigation/types';
 import { useAuthStore } from '../../stores/authStore';
+import { useThemeStore } from '../../stores/themeStore';
 // usePreferencesStore re-enabled with the Communications section.
 // import { usePreferencesStore } from '../../stores/preferencesStore';
 import { colors } from '../../theme/colors';
 import { iconSize, iconStroke } from '../../theme/icons';
 import { layout } from '../../theme/layout';
-import { screenStyles } from '../../theme/screenStyles';
+import { getScreenStyles } from '../../theme/screenStyles';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { themeMeta, type ThemeName } from '../../theme/themePresets';
+
+const THEME_ORDER: ThemeName[] = ['dark', 'light', 'midnight', 'sand'];
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'Settings'>;
 
@@ -42,7 +49,10 @@ export function SettingsScreen() {
   const setUser = useAuthStore(s => s.setUser);
   const alert = useAppAlert();
   const toast = useAppToast();
+  const styles = useThemedStyles(buildStyles);
   const [deletingAccount, setDeletingAccount] = React.useState(false);
+  const themeName = useThemeStore(s => s.themeName);
+  const setTheme = useThemeStore(s => s.setTheme);
   // Preferences are read by the hidden Communications section.
   // const prefs = usePreferencesStore(s => s.prefs);
   // const setPrefs = usePreferencesStore(s => s.setPrefs);
@@ -85,13 +95,66 @@ export function SettingsScreen() {
 
   return (
     <ScreenScroll>
-      <Text style={screenStyles.sectionOverline}>Preferences</Text>
+      <Text style={getScreenStyles().sectionOverline}>Preferences</Text>
       <Text style={styles.title}>Settings</Text>
       <Text style={styles.lead}>
         Manage your account, notifications, and this device session.
       </Text>
 
-      <Text style={[screenStyles.sectionOverline, styles.sectionLabel]}>
+      <Text style={[getScreenStyles().sectionOverline, styles.sectionLabel]}>
+        Appearance
+      </Text>
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Palette
+            color={colors.textMuted}
+            size={iconSize.sm}
+            strokeWidth={iconStroke}
+          />
+          <Text style={styles.cardHeaderText}>Theme</Text>
+        </View>
+        <View style={styles.themeGrid}>
+          {THEME_ORDER.map(name => {
+            const meta = themeMeta[name];
+            const selected = themeName === name;
+            return (
+              <Pressable
+                key={name}
+                onPress={() => {
+                  void setTheme(name);
+                }}
+                style={({ pressed }) => [
+                  styles.themeSwatchRow,
+                  selected && styles.themeSwatchRowSelected,
+                  pressed && styles.pressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                accessibilityLabel={`${meta.label} theme`}>
+                <View
+                  style={[
+                    styles.themeSwatch,
+                    { backgroundColor: meta.swatch },
+                  ]}
+                />
+                <Text style={styles.themeLabel}>{meta.label}</Text>
+                {selected ? (
+                  <Check
+                    color={colors.primary}
+                    size={iconSize.sm}
+                    strokeWidth={2.5}
+                  />
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={styles.themeHint}>
+          Some screens may need a moment to fully repaint after switching.
+        </Text>
+      </View>
+
+      <Text style={[getScreenStyles().sectionOverline, styles.sectionLabel]}>
         Account
       </Text>
       <View style={styles.card}>
@@ -139,7 +202,7 @@ export function SettingsScreen() {
       {/*
         Communications / Channels section is hidden for now.
         Uncomment when the notification preferences are re-enabled.
-      <Text style={[screenStyles.sectionOverline, styles.sectionLabel]}>
+      <Text style={[getScreenStyles().sectionOverline, styles.sectionLabel]}>
         Communications
       </Text>
       <View style={styles.card}>
@@ -177,7 +240,7 @@ export function SettingsScreen() {
       </View>
       */}
 
-      <Text style={[screenStyles.sectionOverline, styles.sectionLabel]}>
+      <Text style={[getScreenStyles().sectionOverline, styles.sectionLabel]}>
         Session
       </Text>
       <View style={styles.card}>
@@ -198,7 +261,7 @@ export function SettingsScreen() {
         </Pressable>
       </View>
 
-      <Text style={[screenStyles.sectionOverline, styles.sectionLabel, styles.dangerLabel]}>
+      <Text style={[getScreenStyles().sectionOverline, styles.sectionLabel, styles.dangerLabel]}>
         Danger Zone
       </Text>
       <View style={[styles.card, styles.dangerCard]}>
@@ -224,7 +287,7 @@ export function SettingsScreen() {
         </Pressable>
       </View>
 
-      <Text style={[screenStyles.sectionOverline, styles.sectionLabel]}>
+      <Text style={[getScreenStyles().sectionOverline, styles.sectionLabel]}>
         About
       </Text>
       <View style={styles.card}>
@@ -268,6 +331,7 @@ function SettingsLinkRow({
   onPress: () => void;
   isLast?: boolean;
 }) {
+  const styles = useThemedStyles(buildStyles);
   return (
     <Pressable
       style={({ pressed }) => [
@@ -319,6 +383,7 @@ function SettingsLinkRow({
 // }
 
 function Row({ label, value }: { label: string; value: string }) {
+  const styles = useThemedStyles(buildStyles);
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
@@ -327,7 +392,7 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   title: {
     ...typography.displayMedium,
     color: colors.textPrimary,
@@ -457,5 +522,43 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textMuted,
     marginTop: 2,
+  },
+  themeGrid: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+    gap: spacing.xs,
+  },
+  themeSwatchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: layout.radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'transparent',
+  },
+  themeSwatchRowSelected: {
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.primarySoft,
+  },
+  themeSwatch: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  themeLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: '600',
+    flex: 1,
+  },
+  themeHint: {
+    ...typography.caption,
+    color: colors.textMuted,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
   },
 });

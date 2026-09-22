@@ -118,7 +118,7 @@ export function MainTabNavigator() {
       hapticFeedbackEnabled
       tabBarActiveTintColor={colors.primary}
       tabBarInactiveTintColor={colors.textMuted}
-      tabBarStyle={{ backgroundColor: colors.surface }}
+      tabBarStyle={{ backgroundColor: colors.bottomBar }}
       // Android-only: M3 BottomNavigationView shows a pill behind the
       // selected icon. Tint it to the app's primary-soft surface so it
       // reads as part of our palette instead of the default M3 purple.

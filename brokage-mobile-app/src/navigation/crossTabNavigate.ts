@@ -1,4 +1,4 @@
-import { CommonActions } from '@react-navigation/native';
+import { CommonActions, StackActions } from '@react-navigation/native';
 import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 import type { HomeStackParamList, MainStackParamList } from './types';
 
@@ -22,6 +22,53 @@ export function navigateToChatsThread(
       params,
     }),
   );
+}
+
+/** Community search bar → the Display broker-cards results grid (lives on the parent MainStack, same reasoning as ChatThread above). */
+export function navigateToDisplaySearchResults(
+  navigation: NavigationProp<ParamListBase>,
+  params: MainStackParamList['DisplaySearchResults'],
+): void {
+  navigation.dispatch(
+    CommonActions.navigate({
+      name: 'DisplaySearchResults',
+      params,
+    }),
+  );
+}
+
+/** A broker's own "My Display" or someone else's — same MainStack hoist reasoning. */
+export function navigateToMyDisplay(navigation: NavigationProp<ParamListBase>): void {
+  navigation.dispatch(CommonActions.navigate({ name: 'MyDisplay' }));
+}
+
+export function navigateToUserDisplay(
+  navigation: NavigationProp<ParamListBase>,
+  params: MainStackParamList['UserDisplay'],
+): void {
+  navigation.dispatch(
+    CommonActions.navigate({
+      name: 'UserDisplay',
+      params,
+    }),
+  );
+}
+
+/**
+ * From a broker search result: opens their Display, but pushes their
+ * Profile onto the stack first (not shown) so the back button follows
+ * "Display → their Profile → back to search", matching how opening a
+ * Display from a Profile page already behaves everywhere else in the
+ * app, instead of jumping straight back to the search results.
+ */
+export function navigateToUserDisplayFromSearch(
+  navigation: NavigationProp<ParamListBase>,
+  params: MainStackParamList['UserDisplay'],
+): void {
+  navigation.dispatch(
+    StackActions.push('UserProfile', { userId: params.userId, displayName: params.displayName }),
+  );
+  navigation.dispatch(StackActions.push('UserDisplay', params));
 }
 
 export function navigateToHomeStackScreen<

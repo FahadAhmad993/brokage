@@ -1,9 +1,11 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { colors } from '../../theme/colors';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 
 /** Soft brand blobs behind auth forms (non-interactive). */
 export function AuthDecor() {
+  const styles = useThemedStyles(buildStyles);
   return (
     <>
       <View style={styles.blobTop} pointerEvents="none" />
@@ -12,7 +14,7 @@ export function AuthDecor() {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   blobTop: {
     position: 'absolute',
     top: -96,

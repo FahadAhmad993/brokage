@@ -813,8 +813,272 @@ p { margin: 0; }
   font-size: 14px;
 }
 
+/* ---- Mobile top bar + nav drawer ------------------------------------------
+   Below 860px the fixed sidebar (.sidebar--desktop) is hidden. Previously
+   nothing replaced it, so the whole admin panel was unusable on a phone —
+   there was no way to switch pages at all. This top bar + slide-in drawer
+   is the mobile equivalent of the desktop sidebar. */
+
+.mobile-topbar {
+  display: none;
+}
+
+.mobile-nav-overlay {
+  display: none;
+}
+
 @media (max-width: 860px) {
   .shell { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
-  .content { padding: 20px; }
+  .sidebar--desktop { display: none; }
+  .content { padding: 16px 16px 80px; padding-top: 76px; }
+
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    padding: 0 14px;
+    background: var(--forest);
+    color: #fff;
+    z-index: 30;
+  }
+
+  .mobile-topbar__menu-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 18px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobile-topbar__title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 600;
+    font-size: 16px;
+  }
+
+  .mobile-nav-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 22, 17, 0.5);
+    z-index: 40;
+  }
+
+  .mobile-nav-drawer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 82%;
+    max-width: 300px;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
+    display: flex;
+  }
+
+  .mobile-nav-drawer__close {
+    align-self: flex-end;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Tables are the most common overflow offender on narrow screens — let
+     each one scroll horizontally inside its own card instead of forcing
+     the whole page (and the fixed top bar) to scroll sideways. */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .chat-thread-row__people {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .chat-thread-row__arrow {
+    display: none;
+  }
+}
+
+/* ---- Admin chat oversight (Chats page) ------------------------------------ */
+
+.chat-thread-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-thread-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.chat-thread-row--selected {
+  border-color: var(--brass);
+  box-shadow: 0 0 0 1px var(--brass);
+}
+
+.chat-thread-row__people {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chat-thread-row__arrow {
+  color: var(--ink-muted);
+  flex-shrink: 0;
+}
+
+.chat-thread-row__preview {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chat-thread-row__preview-text {
+  font-size: 13px;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-thread-row__preview-time {
+  font-size: 11px;
+  color: var(--ink-muted);
+  opacity: 0.8;
+}
+
+.chat-thread-row__count {
+  justify-self: end;
+}
+
+.chat-conversation-panel {
+  margin: 6px 0 14px;
+  padding: 16px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.chat-conversation-panel__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.chat-conversation-panel__messages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.chat-msg-bubble {
+  max-width: 78%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.chat-msg-bubble--a {
+  align-self: flex-start;
+}
+
+.chat-msg-bubble--b {
+  align-self: flex-end;
+  background: var(--brass-soft);
+}
+
+.chat-msg-bubble__author {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-muted);
+  margin-bottom: 2px;
+}
+
+.chat-msg-bubble__body {
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-msg-bubble__deleted {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--ink-muted);
+}
+
+.chat-msg-bubble__image {
+  max-width: 220px;
+  max-height: 220px;
+  border-radius: 8px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.chat-msg-bubble__time {
+  font-size: 10px;
+  color: var(--ink-muted);
+  margin-top: 4px;
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .chat-thread-row {
+    grid-template-columns: 1fr;
+    justify-items: start;
+    gap: 8px;
+  }
+
+  .chat-thread-row__count {
+    justify-self: start;
+  }
+
+  .chat-msg-bubble {
+    max-width: 92%;
+  }
 }

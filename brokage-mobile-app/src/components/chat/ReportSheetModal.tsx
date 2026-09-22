@@ -16,6 +16,7 @@ import { spacing } from '../../theme/spacing';
 import { layout } from '../../theme/layout';
 import { iconSize, iconStroke } from '../../theme/icons';
 import { submitReport, type ReportReason } from '../../api/client';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 
 const REASONS: { value: ReportReason; label: string }[] = [
   { value: 'spam', label: 'Spam' },
@@ -42,6 +43,7 @@ export function ReportSheetModal({
   /** Called once the report is successfully submitted (e.g. to also block them). */
   onSubmitted?: () => void;
 }) {
+  const styles = useThemedStyles(buildStyles);
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -178,7 +180,7 @@ export function ReportSheetModal({
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: colors.background,

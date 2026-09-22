@@ -20,10 +20,12 @@ import { colors } from '../../theme/colors';
 import { layout } from '../../theme/layout';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'SavedProperties'>;
 
 export function SavedPropertiesScreen() {
+  const styles = useThemedStyles(buildStyles);
   const navigation = useNavigation<Nav>();
   const user = useAuthStore(s => s.user);
   const favoriteIds = useFavoritesStore(s => s.ids);
@@ -82,7 +84,7 @@ export function SavedPropertiesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   scroll: {
     paddingHorizontal: layout.screenPaddingHorizontal,

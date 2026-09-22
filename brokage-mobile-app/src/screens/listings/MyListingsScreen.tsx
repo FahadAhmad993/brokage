@@ -26,14 +26,16 @@ import { useAuthStore } from '../../stores/authStore';
 import { colors } from '../../theme/colors';
 import { iconSize, iconStroke } from '../../theme/icons';
 import { layout } from '../../theme/layout';
-import { screenStyles } from '../../theme/screenStyles';
+import { getScreenStyles } from '../../theme/screenStyles';
 import { shadows } from '../../theme/shadows';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 
 type Nav = NativeStackNavigationProp<HomeStackParamList, 'MyListings'>;
 
 export function MyListingsScreen() {
+  const styles = useThemedStyles(buildStyles);
   const navigation = useNavigation<Nav>();
   const queryClient = useQueryClient();
   const alert = useAppAlert();
@@ -107,7 +109,7 @@ export function MyListingsScreen() {
 
   const listHeader = sorted.length > 0 && (
     <View style={styles.listHead}>
-      <Text style={screenStyles.sectionOverline}>Host</Text>
+      <Text style={getScreenStyles().sectionOverline}>Host</Text>
       <Text style={styles.screenLead}>Your listings</Text>
       <Text style={styles.screenHint}>
         Open a card to preview on the map. Pause anytime or use More for
@@ -153,7 +155,7 @@ export function MyListingsScreen() {
                 strokeWidth={iconStroke}
               />
             </View>
-            <Text style={screenStyles.sectionOverline}>Host</Text>
+            <Text style={getScreenStyles().sectionOverline}>Host</Text>
             <Text style={styles.emptyTitle}>No listings yet</Text>
             <Text style={styles.emptyBody}>
               Publish a property to manage availability, status, and visibility
@@ -207,7 +209,7 @@ export function MyListingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   listContent: {
     paddingHorizontal: layout.screenPaddingHorizontal,

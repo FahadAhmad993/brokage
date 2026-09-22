@@ -9,6 +9,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bath, Bed, ImageOff, MapPin, Maximize2, Star } from 'lucide-react-native';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 import React, {
   useCallback,
   useEffect,
@@ -49,7 +50,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useMyListingsStore } from '../../stores/myListingsStore';
 import type { ChatThread } from '../../types/models';
 import { colors } from '../../theme/colors';
-import { screenStyles } from '../../theme/screenStyles';
+import { getScreenStyles } from '../../theme/screenStyles';
 import { iconSize, iconStroke } from '../../theme/icons';
 import { layout } from '../../theme/layout';
 import { shadows } from '../../theme/shadows';
@@ -128,6 +129,7 @@ function PropertyImagePager({
   listingTitle: string;
   priceOverlay: React.ReactNode;
 }) {
+  const styles = useThemedStyles(buildStyles);
   const [page, setPage] = useState(0);
   const multi = urls.length > 1;
   const listRef = useRef<FlatList<string>>(null);
@@ -275,6 +277,7 @@ function PropertyImagePager({
 }
 
 export function PropertyDetailScreen() {
+  const styles = useThemedStyles(buildStyles);
   const { width: windowWidth } = useWindowDimensions();
   const route = useRoute<R>();
   const navigation = useNavigation<Nav>();
@@ -649,7 +652,7 @@ export function PropertyDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   scroll: { flex: 1 },
@@ -667,11 +670,11 @@ const styles = StyleSheet.create({
   },
   muted: { ...typography.body, color: colors.textMuted },
   notFoundTitle: {
-    ...screenStyles.screenTitle,
+    ...getScreenStyles().screenTitle,
     marginBottom: spacing.sm,
   },
   ownerBanner: {
-    ...screenStyles.card,
+    ...getScreenStyles().card,
     marginBottom: spacing.sm,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
@@ -870,7 +873,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   sectionLabel: {
-    ...screenStyles.sectionOverline,
+    ...getScreenStyles().sectionOverline,
     color: colors.textMuted,
     marginBottom: spacing.sm,
   },

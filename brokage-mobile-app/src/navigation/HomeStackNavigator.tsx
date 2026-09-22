@@ -11,6 +11,7 @@ import { MyListingsScreen } from '../screens/listings/MyListingsScreen';
 import { AddPropertyScreen } from '../screens/property/AddPropertyScreen';
 import { PropertyDetailScreen } from '../screens/property/PropertyDetailScreen';
 import { colors } from '../theme/colors';
+import { useThemedStyles } from '../hooks/useThemedStyles';
 import { iconSize, iconStroke } from '../theme/icons';
 import type { HomeStackParamList } from './types';
 
@@ -19,6 +20,7 @@ const Stack = createNativeStackNavigator<HomeStackParamList>();
 function MyListingsHeaderAdd() {
   const navigation =
     useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
+  const headerAddStyles = useThemedStyles(buildHeaderAddStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -35,7 +37,8 @@ function MyListingsHeaderAdd() {
   );
 }
 
-const headerAddStyles = StyleSheet.create({
+const buildHeaderAddStyles = () =>
+  StyleSheet.create({
   wrap: { paddingRight: 4 },
 });
 
@@ -48,7 +51,7 @@ export function HomeStackNavigator() {
     <Stack.Navigator
       initialRouteName="Home"
       screenOptions={{
-        headerStyle: { backgroundColor: colors.background },
+        headerStyle: { backgroundColor: colors.topBar },
         headerTintColor: colors.primary,
         headerShadowVisible: false,
         freezeOnBlur: true,

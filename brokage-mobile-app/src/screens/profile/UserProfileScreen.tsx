@@ -1,4 +1,5 @@
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -18,13 +19,11 @@ import {
   View,
 } from 'react-native';
 import { ScreenScroll } from '../../components/ScreenScroll';
-import { useAppAlert } from '../../components/appAlert';
 import { errorMessage, fetchUserProfile } from '../../api/client';
 import type { MainStackParamList } from '../../navigation/types';
 import { colors } from '../../theme/colors';
 import { iconSize, iconStroke } from '../../theme/icons';
-import { layout } from '../../theme/layout';
-import { screenStyles } from '../../theme/screenStyles';
+import { getScreenStyles } from '../../theme/screenStyles';
 import { shadows } from '../../theme/shadows';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -44,6 +43,7 @@ function InfoRow({
   label: string;
   value?: string | null;
 }) {
+  const styles = useThemedStyles(buildStyles);
   return (
     <View style={styles.infoRow}>
       <View style={styles.infoIcon}>{icon}</View>
@@ -58,9 +58,9 @@ function InfoRow({
 }
 
 export function UserProfileScreen() {
+  const styles = useThemedStyles(buildStyles);
   const route = useRoute<Route>();
   const navigation = useNavigation<Nav>();
-  const alert = useAppAlert();
   const { userId, displayName: fallbackName } = route.params;
 
   const profileQuery = useQuery({
@@ -80,10 +80,7 @@ export function UserProfileScreen() {
   }, [navigation]);
 
   const onDisplayPress = () => {
-    alert({
-      title: 'Display',
-      message: 'Coming soon.',
-    });
+    navigation.navigate('UserDisplay', { userId, displayName: name });
   };
 
   if (profileQuery.isLoading) {
@@ -106,7 +103,7 @@ export function UserProfileScreen() {
 
   return (
     <ScreenScroll>
-      <Text style={screenStyles.sectionOverline}>Profile</Text>
+      <Text style={getScreenStyles().sectionOverline}>Profile</Text>
       <Text style={styles.title}>{name}</Text>
 
       <View style={styles.avatarWrap}>
@@ -163,7 +160,7 @@ export function UserProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   loading: {
     flex: 1,
     alignItems: 'center',
@@ -209,7 +206,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   card: {
-    ...screenStyles.cardElevated,
+    ...getScreenStyles().cardElevated,
     gap: 0,
   },
   divider: {
@@ -244,7 +241,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   displayRow: {
-    ...screenStyles.cardElevated,
+    ...getScreenStyles().cardElevated,
     marginTop: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',

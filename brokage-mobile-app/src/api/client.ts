@@ -10,6 +10,10 @@ import type {
   ChatMessage,
   ChatThread,
   ChatListingRef,
+  DisplayBrokerCard,
+  DisplayPost,
+  DisplayPostConfig,
+  DisplayProfile,
   ManagedListing,
   Property,
   PropertyCategory,
@@ -124,6 +128,90 @@ export async function createCommunityPost(data: {
   });
 }
 //  adds code 1 end
+
+// ---- Display (Profile → Display) ---------------------------------------
+
+/** Live pricing + image bounds — used to build the "Add Post" form. */
+export async function fetchDisplayConfig(): Promise<DisplayPostConfig> {
+  return apiRequest<DisplayPostConfig>('/display/config');
+}
+
+/** Price preview shown live under the duration picker, before posting. */
+export async function quoteDisplayPostPrice(
+  durationHours: number,
+): Promise<{ durationHours: number; price: number }> {
+  return apiRequest(`/display/quote?durationHours=${durationHours}`);
+}
+
+/** My own Display — every post regardless of status, for "My Display". */
+export async function fetchMyDisplayPosts(): Promise<DisplayPost[]> {
+  return apiRequest<DisplayPost[]>('/display/mine');
+}
+
+/** Someone else's Display — only their live (active/sold) posts. */
+export async function fetchUserDisplayPosts(userId: string): Promise<DisplayPost[]> {
+  return apiRequest<DisplayPost[]>(`/display/user/${userId}`);
+}
+
+export async function fetchMyDisplayProfile(): Promise<DisplayProfile> {
+  return apiRequest<DisplayProfile>('/display/mine/profile');
+}
+
+export async function fetchUserDisplayProfile(userId: string): Promise<DisplayProfile> {
+  return apiRequest<DisplayProfile>(`/display/user/${userId}/profile`);
+}
+
+export async function setMyDisplayCover(coverImageUrl: string | null): Promise<DisplayProfile> {
+  return apiRequest<DisplayProfile>('/display/mine/profile', {
+    method: 'PATCH',
+    body: JSON.stringify({ coverImageUrl }),
+  });
+}
+
+export async function createDisplayPost(data: {
+  images: string[];
+  marlaSize: number;
+  city?: string;
+  area?: string;
+  description?: string;
+  extraFields?: Record<string, string>;
+  durationHours: number;
+}): Promise<DisplayPost> {
+  return apiRequest<DisplayPost>('/display', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateDisplayPost(
+  id: string,
+  data: Partial<{
+    images: string[];
+    marlaSize: number;
+    city: string;
+    area: string;
+    description: string;
+    extraFields: Record<string, string>;
+  }>,
+): Promise<DisplayPost> {
+  return apiRequest<DisplayPost>(`/display/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteDisplayPost(id: string): Promise<{ success: boolean }> {
+  return apiRequest(`/display/${id}`, { method: 'DELETE' });
+}
+
+export async function markDisplayPostSold(id: string): Promise<DisplayPost> {
+  return apiRequest<DisplayPost>(`/display/${id}/sold`, { method: 'PATCH' });
+}
+
+/** Community search bar → broker cards grid (e.g. query "5 marla"). */
+export async function searchDisplayBrokers(query: string): Promise<DisplayBrokerCard[]> {
+  return apiRequest<DisplayBrokerCard[]>(`/display/search?q=${encodeURIComponent(query)}`);
+}
 
 
 
@@ -343,42 +431,86 @@ function parseMonthlyPrice(raw: string): number {
   return Number.isFinite(n) ? Math.round(n) : 0;
 }
 
-export async function mockLogin(email: string, password: string): Promise<User> {
+export type AuthStartResult =
+  | { status: 'verified'; user: User }
+  | { status: 'otp-required'; email: string; purpose: 'signup' | 'login' };
+
+export async function mockLogin(email: string, password: string): Promise<AuthStartResult> {
   if (API_MODE !== 'live') {
     await delay(400);
     return {
-      id: 'me',
-      email,
-      displayName: email.split('@')[0].replace(/[._]/g, ' ') || 'You',
+      status: 'verified',
+      user: {
+        id: 'me',
+        email,
+        displayName: email.split('@')[0].replace(/[._]/g, ' ') || 'You',
+      },
     };
   }
-  const data = await apiRequest<{ accessToken: string; user: User }>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  });
-  await setAccessToken(data.accessToken);
-  return normalizeUser(data.user);
+  const data = await apiRequest<{ email: string; purpose: 'signup' | 'login'; message: string }>(
+    '/auth/login',
+    {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    },
+  );
+  return { status: 'otp-required', email: data.email, purpose: data.purpose };
 }
 
 export async function mockRegister(
   email: string,
   password: string,
   displayName: string,
-): Promise<User> {
+): Promise<AuthStartResult> {
   if (API_MODE !== 'live') {
     await delay(500);
     return {
-      id: 'me',
-      email,
-      displayName: displayName.trim() || 'New member',
+      status: 'verified',
+      user: {
+        id: 'me',
+        email,
+        displayName: displayName.trim() || 'New member',
+      },
     };
   }
-  const data = await apiRequest<{ accessToken: string; user: User }>('/auth/register', {
+  const data = await apiRequest<{ email: string; message: string }>('/auth/register', {
     method: 'POST',
     body: JSON.stringify({ email, password, displayName }),
   });
+  return { status: 'otp-required', email: data.email, purpose: 'signup' };
+}
+
+/** Second step of both login and register above — this is what actually signs the user in. */
+export async function verifyAuthOtp(
+  email: string,
+  code: string,
+  purpose: 'signup' | 'login',
+): Promise<User> {
+  if (API_MODE !== 'live') {
+    await delay(300);
+    return { id: 'me', email, displayName: email.split('@')[0].replace(/[._]/g, ' ') || 'You' };
+  }
+  const data = await apiRequest<{ accessToken: string; user: User }>('/auth/verify-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email, code, purpose }),
+  });
   await setAccessToken(data.accessToken);
   return normalizeUser(data.user);
+}
+
+/** Re-sends the code — throws with a `retryAfterSeconds` field (via errorMessage's underlying error) if still within the 60s cooldown. */
+export async function resendAuthOtp(
+  email: string,
+  purpose?: 'signup' | 'login',
+): Promise<{ message: string }> {
+  if (API_MODE !== 'live') {
+    await delay(300);
+    return { message: 'Code resent.' };
+  }
+  return apiRequest<{ message: string }>('/auth/resend-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email, purpose }),
+  });
 }
 
 export async function mockRequestPasswordReset(_email: string): Promise<void> {

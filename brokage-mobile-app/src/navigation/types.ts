@@ -10,6 +10,12 @@ export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
+  VerifyOtp: {
+    email: string;
+    purpose: 'signup' | 'login';
+    /** Carried through only so the OTP screen can save it locally (biometric-style re-login) once verification succeeds — never sent anywhere itself. */
+    password: string;
+  };
 };
 
 // MapExplore: add back when map is funded (see HomeStackNavigator + HomeScreen FAB).
@@ -114,4 +120,20 @@ export type MainStackParamList = {
     authorAvatarUrl?: string | null;
   };
 };
+
+  // "My Display" (own storefront) / viewing someone else's, and the
+  // "Add Post" form — hoisted here for the same reason as ChatThread etc.
+  // above: these are full-screen flows that should hide the bottom tab bar.
+  MyDisplay: undefined;
+  UserDisplay: {
+    userId: string;
+    displayName?: string;
+  };
+  CreateDisplayPost: {
+    /** Present when editing an existing post instead of creating a new one. */
+    editPost?: import('../types/models').DisplayPost;
+  } | undefined;
+  DisplaySearchResults: {
+    query: string;
+  };
 };

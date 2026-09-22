@@ -1,13 +1,14 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 // LayoutList re-enabled with the "Your listings" row.
-import { ChevronRight, Settings } from 'lucide-react-native';
+import { ChevronRight, LayoutGrid, Settings } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ScreenScroll } from '../../components/ScreenScroll';
 import {
   navigateToEditProfile,
   navigateToHomeStackScreen,
+  navigateToMyDisplay,
   navigateToSettings,
 } from '../../navigation/crossTabNavigate';
 import type { ProfileStackParamList } from '../../navigation/types';
@@ -16,13 +17,15 @@ import { initialsFromDisplay } from '../../utils/userDisplay';
 import { colors } from '../../theme/colors';
 import { iconSize, iconStroke } from '../../theme/icons';
 import { layout } from '../../theme/layout';
-import { screenStyles } from '../../theme/screenStyles';
+import { getScreenStyles } from '../../theme/screenStyles';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, 'ProfileHome'>;
 
 export function ProfileScreen() {
+  const styles = useThemedStyles(buildStyles);
   const navigation = useNavigation<Nav>();
   const user = useAuthStore(s => s.user);
 
@@ -43,7 +46,7 @@ export function ProfileScreen() {
 
   return (
     <ScreenScroll>
-      <Text style={screenStyles.sectionOverline}>Profile</Text>
+      <Text style={getScreenStyles().sectionOverline}>Profile</Text>
       <Text style={styles.title}>Account</Text>
       <Text style={styles.sub}>
         Your listings and profile preferences.
@@ -133,6 +136,23 @@ export function ProfileScreen() {
         */}
 
         <Pressable
+          style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}
+          onPress={() => navigateToMyDisplay(navigation)}
+          accessibilityRole="button"
+          accessibilityLabel="My Display">
+          <View style={styles.menuLeft}>
+            <View style={styles.menuIconWrap}>
+              <LayoutGrid color={colors.primary} size={iconSize.md} strokeWidth={iconStroke} />
+            </View>
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuLabel}>My Display</Text>
+              <Text style={styles.menuHint}>Your storefront — photos & posts</Text>
+            </View>
+          </View>
+          <ChevronRight color={colors.textMuted} size={iconSize.lg} strokeWidth={iconStroke} />
+        </Pressable>
+
+        <Pressable
           style={({ pressed }) => [
             styles.menuRowLast,
             pressed && styles.pressed,
@@ -174,7 +194,7 @@ export function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   title: {
     ...typography.displayMedium,
     color: colors.textPrimary,
@@ -187,7 +207,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   heroCard: {
-    ...screenStyles.cardElevated,
+    ...getScreenStyles().cardElevated,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,

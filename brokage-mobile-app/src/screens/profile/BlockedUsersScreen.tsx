@@ -1,4 +1,5 @@
 import { ShieldOff } from 'lucide-react-native';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -18,7 +19,7 @@ import {
 import { colors } from '../../theme/colors';
 import { iconSize, iconStroke } from '../../theme/icons';
 import { layout } from '../../theme/layout';
-import { screenStyles } from '../../theme/screenStyles';
+import { getScreenStyles } from '../../theme/screenStyles';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { initialsFromDisplay } from '../../utils/userDisplay';
@@ -34,6 +35,7 @@ function BlockedUserRow({
   busy: boolean;
   onUnblock: (user: BlockedUser) => void;
 }) {
+  const styles = useThemedStyles(buildStyles);
   return (
     <View style={styles.row}>
       {user.avatarUrl ? (
@@ -69,6 +71,7 @@ function BlockedUserRow({
 }
 
 export function BlockedUsersScreen() {
+  const styles = useThemedStyles(buildStyles);
   const alert = useAppAlert();
   const toast = useAppToast();
   const [items, setItems] = React.useState<BlockedUser[] | null>(null);
@@ -126,7 +129,7 @@ export function BlockedUsersScreen() {
 
   return (
     <ScreenScroll>
-      <Text style={screenStyles.sectionOverline}>Privacy</Text>
+      <Text style={getScreenStyles().sectionOverline}>Privacy</Text>
       <Text style={styles.title}>Blocked users</Text>
       <Text style={styles.lead}>
         People you've blocked can't message you or see your community posts.
@@ -169,7 +172,7 @@ export function BlockedUsersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   title: {
     ...typography.displayMedium,
     color: colors.textPrimary,

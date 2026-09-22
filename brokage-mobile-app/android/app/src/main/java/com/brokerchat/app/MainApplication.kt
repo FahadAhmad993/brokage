@@ -1,4 +1,4 @@
-package com.brokage
+package com.brokerchat.app
 
 import android.app.Application
 import com.facebook.react.PackageList

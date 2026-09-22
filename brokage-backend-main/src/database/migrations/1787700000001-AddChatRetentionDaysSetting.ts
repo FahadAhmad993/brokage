@@ -5,9 +5,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * survives before `ChatRetentionService`'s daily sweep hard-deletes it.
  * Defaults to 20 to match the previous hardcoded behaviour.
  */
-export class AddChatRetentionDaysSetting1787700000001
-  implements MigrationInterface
-{
+export class AddChatRetentionDaysSetting1787700000001 implements MigrationInterface {
   name = 'AddChatRetentionDaysSetting1787700000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

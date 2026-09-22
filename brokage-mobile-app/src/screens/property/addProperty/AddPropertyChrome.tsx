@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, Save, X } from 'lucide-react-native';
+import { useThemedStyles } from '../../../hooks/useThemedStyles';
 import React from 'react';
 import {
   Platform,
@@ -28,6 +29,7 @@ export function AddPropertyChrome({
   onClose,
   onSaveDraft,
 }: Props) {
+  const styles = useThemedStyles(buildStyles);
   const meta = STEP_CONFIG[step - 1];
   if (!meta) {
     return null;
@@ -115,6 +117,7 @@ export function AddPropertyFooter({
   isPublishStep?: boolean;
   paddingBottom: number;
 }) {
+  const styles = useThemedStyles(buildStyles);
   if (isPublishStep) {
     return (
       <View style={[styles.footerPublish, { paddingBottom }]}>
@@ -223,7 +226,7 @@ export function AddPropertyFooter({
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   header: {
     paddingHorizontal: spacing.md,
     paddingTop: Platform.OS === 'ios' ? 4 : spacing.sm,

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddCommunityPostContextToChatMessage1786817345658
-  implements MigrationInterface
-{
+export class AddCommunityPostContextToChatMessage1786817345658 implements MigrationInterface {
   name = 'AddCommunityPostContextToChatMessage1786817345658';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

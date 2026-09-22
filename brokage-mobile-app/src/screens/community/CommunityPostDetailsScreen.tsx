@@ -1,4 +1,5 @@
 import React from 'react';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 import {
   Image,
   ScrollView,
@@ -8,6 +9,7 @@ import {
 } from 'react-native';
 
 export function CommunityPostDetailsScreen({ route }: any) {
+  const styles = useThemedStyles(buildStyles);
   const post = route.params.post;
 
   return (
@@ -36,7 +38,7 @@ export function CommunityPostDetailsScreen({ route }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',

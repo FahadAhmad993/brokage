@@ -24,10 +24,12 @@ import { spacing } from '../../../theme/spacing';
 import { typography } from '../../../theme/typography';
 import { PHOTO_STEP_INTRO } from './constants';
 import { fieldStyles } from './fieldStyles';
+import { useThemedStyles } from '../../../hooks/useThemedStyles';
 
 const MAX_PHOTOS = 6;
 
 export function StepMedia() {
+  const styles = useThemedStyles(buildStyles);
   const {
     watch,
     setValue,
@@ -150,7 +152,7 @@ export function StepMedia() {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   wrap: { gap: spacing.lg },
   lead: {
     ...typography.bodySmall,

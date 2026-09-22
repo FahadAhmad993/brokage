@@ -20,6 +20,7 @@ export function SettingsPage() {
   const settingsQuery = useQuery({ queryKey: ['admin', 'settings'], queryFn: fetchSettings });
 
   const [pricePerHourPkr, setPricePerHourPkr] = useState('');
+  const [displayPricePerHourPkr, setDisplayPricePerHourPkr] = useState('');
   const [minImages, setMinImages] = useState('');
   const [maxImages, setMaxImages] = useState('');
   const [cityRequired, setCityRequired] = useState(true);
@@ -34,6 +35,7 @@ export function SettingsPage() {
     if (!settingsQuery.data) return;
     const s = settingsQuery.data;
     setPricePerHourPkr(String(s.pricePerHourPkr));
+    setDisplayPricePerHourPkr(String(s.displayPricePerHourPkr));
     setMinImages(String(s.minImages));
     setMaxImages(String(s.maxImages));
     setCityRequired(s.cityRequired);
@@ -60,13 +62,16 @@ export function SettingsPage() {
   });
 
   const durationForOneAd24h = Number(pricePerHourPkr || 0) * 24;
+  const durationForOneDisplayPost24h = Number(displayPricePerHourPkr || 0) * 24;
 
   const onSave = () => {
     const price = Number(pricePerHourPkr);
+    const displayPrice = Number(displayPricePerHourPkr);
     const min = Number(minImages);
     const max = Number(maxImages);
     const retentionDays = Number(chatRetentionDays);
     if (!Number.isFinite(price) || price < 0) return;
+    if (!Number.isFinite(displayPrice) || displayPrice < 0) return;
     if (!Number.isInteger(min) || min < 1) return;
     if (!Number.isInteger(max) || max < min) return;
     if (!Number.isInteger(retentionDays) || retentionDays < 1) return;
@@ -77,6 +82,7 @@ export function SettingsPage() {
 
     saveMutation.mutate({
       pricePerHourPkr: price,
+      displayPricePerHourPkr: displayPrice,
       minImages: min,
       maxImages: max,
       cityRequired,
@@ -147,6 +153,27 @@ export function SettingsPage() {
             />
             <p className="settings-hint">
               Example: a 24-hour ad currently costs PKR {Number.isFinite(durationForOneAd24h) ? durationForOneAd24h.toFixed(2) : '—'}.
+            </p>
+          </section>
+
+          <section className="settings-section">
+            <h3>Display post pricing</h3>
+            <p className="settings-hint">
+              Posts on a broker's personal Display page (Profile → Display) — priced separately
+              from Community ads above.
+            </p>
+            <label className="field-label">PKR per hour</label>
+            <input
+              className="field-input"
+              type="number"
+              min={0}
+              step="0.01"
+              value={displayPricePerHourPkr}
+              onChange={(e) => setDisplayPricePerHourPkr(e.target.value)}
+            />
+            <p className="settings-hint">
+              Example: a 24-hour Display post currently costs PKR{' '}
+              {Number.isFinite(durationForOneDisplayPost24h) ? durationForOneDisplayPost24h.toFixed(2) : '—'}.
             </p>
           </section>
 

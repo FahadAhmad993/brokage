@@ -10,6 +10,7 @@ import { colors } from '../theme/colors';
 import { layout } from '../theme/layout';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
+import { useThemedStyles } from '../hooks/useThemedStyles';
 
 type Props = {
   label: string;
@@ -27,6 +28,7 @@ export function OutlinedButton({
   style,
   testID,
 }: Props) {
+  const styles = useThemedStyles(buildStyles);
   return (
     <Pressable
       testID={testID}
@@ -48,7 +50,7 @@ export function OutlinedButton({
 
 const RADIUS = layout.radius.lg;
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   wrap: {
     borderRadius: RADIUS,
     borderWidth: StyleSheet.hairlineWidth,

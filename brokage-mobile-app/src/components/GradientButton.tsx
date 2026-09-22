@@ -13,6 +13,7 @@ import { layout } from '../theme/layout';
 import { shadows } from '../theme/shadows';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
+import { useThemedStyles } from '../hooks/useThemedStyles';
 
 /** Shared corner radius — rounded rect reads cleaner than full pill at scale. */
 const RADIUS_MAIN = layout.radius.lg;
@@ -41,6 +42,7 @@ export function GradientButton({
   toolbar,
   style,
 }: Props) {
+  const styles = useThemedStyles(buildStyles);
   const inactive = disabled || loading;
   return (
     <Pressable
@@ -81,7 +83,7 @@ export function GradientButton({
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   pressable: {
     borderRadius: RADIUS_MAIN,
     overflow: 'hidden',

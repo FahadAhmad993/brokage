@@ -20,16 +20,18 @@ import { updateStoredPassword } from '../../stores/credentialsStore';
 import { colors } from '../../theme/colors';
 import { iconSize, iconStroke } from '../../theme/icons';
 import { layout } from '../../theme/layout';
-import { screenStyles } from '../../theme/screenStyles';
+import { getScreenStyles } from '../../theme/screenStyles';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { fieldStyles } from '../property/addProperty/fieldStyles';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'ChangePassword'>;
 
 const MIN_LEN = 8;
 
 export function ChangePasswordScreen() {
+  const styles = useThemedStyles(buildStyles);
   const navigation = useNavigation<Nav>();
   const alert = useAppAlert();
   const toast = useAppToast();
@@ -103,7 +105,7 @@ export function ChangePasswordScreen() {
 
   return (
     <ScreenScroll>
-      <Text style={screenStyles.sectionOverline}>Security</Text>
+      <Text style={getScreenStyles().sectionOverline}>Security</Text>
       <Text style={styles.title}>Change password</Text>
       <Text style={styles.lead}>
         For this preview build, your password is stored only on this device with
@@ -218,7 +220,7 @@ export function ChangePasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   title: {
     ...typography.displayMedium,
     color: colors.textPrimary,

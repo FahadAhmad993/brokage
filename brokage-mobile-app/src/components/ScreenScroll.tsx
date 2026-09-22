@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { layout } from '../theme/layout';
 import { spacing } from '../theme/spacing';
+import { useThemedStyles } from '../hooks/useThemedStyles';
 
 type Props = {
   children: ReactNode;
@@ -57,6 +58,7 @@ type Props = {
  *   - Swipe down on the scroll view to dismiss the keyboard.
  */
 export function ScreenScroll({ children, topInsetBackground }: Props) {
+  const styles = useThemedStyles(buildStyles);
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const bottomPad = Math.max(insets.bottom, spacing.md) + spacing.lg;
@@ -96,7 +98,7 @@ export function ScreenScroll({ children, topInsetBackground }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   scroll: { flex: 1 },
   // NO `flexGrow: 1` — even with mode="layout", flexGrow on the content

@@ -9,9 +9,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * bubble — the community message text is never copied into the outgoing
  * message's own `body`.
  */
-export class AddReplyToCommunityMessage1787700000000
-  implements MigrationInterface
-{
+export class AddReplyToCommunityMessage1787700000000 implements MigrationInterface {
   name = 'AddReplyToCommunityMessage1787700000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

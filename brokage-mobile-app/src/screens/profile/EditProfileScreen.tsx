@@ -1,7 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Camera, Trash2 } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -21,17 +21,19 @@ import { useAuthStore } from '../../stores/authStore';
 import { colors } from '../../theme/colors';
 import { iconSize, iconStroke } from '../../theme/icons';
 import { layout } from '../../theme/layout';
-import { screenStyles } from '../../theme/screenStyles';
+import { getScreenStyles } from '../../theme/screenStyles';
 import { shadows } from '../../theme/shadows';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { fieldStyles } from '../property/addProperty/fieldStyles';
 import { initialsFromDisplay } from '../../utils/userDisplay';
 import { useAppAlert, useAppToast } from '../../components/appAlert';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'EditProfile'>;
 
 export function EditProfileScreen() {
+  const styles = useThemedStyles(buildStyles);
   const navigation = useNavigation<Nav>();
   const alert = useAppAlert();
   const toast = useAppToast();
@@ -44,6 +46,25 @@ export function EditProfileScreen() {
   const [avatarUri, setAvatarUri] = useState(user?.avatarUri);
   const [saving, setSaving] = useState(false);
   const [picking, setPicking] = useState(false);
+
+  // `useState(user?.displayName ?? '')` above only ever runs its initial
+  // value ONCE, at first mount — if `user` is still hydrating from storage
+  // at that exact moment (e.g. right after a cold app start), every field
+  // locks in as permanently empty even though the real profile data
+  // arrives a moment later. This backfills the form the first time a real
+  // `user` shows up, without re-running on every store update (which
+  // would otherwise clobber whatever the person is actively typing).
+  const hydratedFromUserRef = useRef(false);
+  useEffect(() => {
+    if (hydratedFromUserRef.current || !user) {
+      return;
+    }
+    hydratedFromUserRef.current = true;
+    setDisplayName(user.displayName ?? '');
+    setPhone(user.phone ?? '');
+    setEstateName(user.estateName ?? '');
+    setAvatarUri(user.avatarUri);
+  }, [user]);
 
   const initials = useMemo(
     () => initialsFromDisplay(displayName, user?.email),
@@ -117,7 +138,7 @@ export function EditProfileScreen() {
 
   return (
     <ScreenScroll>
-      <Text style={screenStyles.sectionOverline}>Account</Text>
+      <Text style={getScreenStyles().sectionOverline}>Account</Text>
       <Text style={styles.title}>Edit profile</Text>
       <Text style={styles.lead}>
         Your name and photo appear on listings and messages. Email stays tied to
@@ -232,7 +253,7 @@ export function EditProfileScreen() {
 
 const AVATAR = 96;
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   title: {
     ...typography.displayMedium,
     color: colors.textPrimary,
@@ -246,7 +267,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   avatarCard: {
-    ...screenStyles.cardElevated,
+    ...getScreenStyles().cardElevated,
     alignItems: 'center',
     paddingVertical: spacing.lg,
     marginBottom: spacing.lg,

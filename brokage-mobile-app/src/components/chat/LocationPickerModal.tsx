@@ -27,6 +27,7 @@ import {
   STATIC_MAP_ZOOM,
 } from '../../lib/shareLocation';
 import type { ChatLocationRef } from '../../types/models';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 
 const DEFAULT_CENTER = { latitude: 31.5204, longitude: 74.3587 }; // Lahore fallback
 
@@ -39,6 +40,7 @@ export function LocationPickerModal({
   onClose: () => void;
   onSend: (location: ChatLocationRef) => void;
 }) {
+  const styles = useThemedStyles(buildStyles);
   const [center, setCenter] = useState(DEFAULT_CENTER);
   const [zoom, setZoom] = useState(STATIC_MAP_ZOOM);
   const [mode, setMode] = useState<'idle' | 'locating' | 'map'>('idle');
@@ -207,7 +209,7 @@ export function LocationPickerModal({
 
 const MAP_SIZE = 320;
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',

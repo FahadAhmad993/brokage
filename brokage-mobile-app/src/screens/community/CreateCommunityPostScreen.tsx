@@ -32,6 +32,7 @@ import { typography } from '../../theme/typography';
 import { uploadImageToCloudinary } from '../../lib/cloudinary';
 import {createCommunityPost,} from '../../api/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 
 
 
@@ -39,6 +40,7 @@ const MIN_IMAGES = 2;
 const MAX_IMAGES = 6;
 
 export function CreateCommunityPostScreen() {
+  const styles = useThemedStyles(buildStyles);
   const navigation = useNavigation();
 const queryClient = useQueryClient();
 
@@ -792,7 +794,7 @@ await queryClient.invalidateQueries({
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor:

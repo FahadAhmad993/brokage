@@ -10,13 +10,15 @@ import { TextField } from '../../components/TextField';
 import { ScreenScroll } from '../../components/ScreenScroll';
 import { mockRequestPasswordReset } from '../../api/client';
 import type { AuthStackParamList } from '../../navigation/types';
-import { authScreenStyles } from '../../theme/authScreenStyles';
-import { screenStyles } from '../../theme/screenStyles';
+import { getAuthScreenStyles } from '../../theme/authScreenStyles';
+import { getScreenStyles } from '../../theme/screenStyles';
 import { spacing } from '../../theme/spacing';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'>;
 
 export function ForgotPasswordScreen() {
+  const styles = useThemedStyles(buildStyles);
   const alert = useAppAlert();
   const navigation = useNavigation<Nav>();
   const [email, setEmail] = useState('');
@@ -38,15 +40,15 @@ export function ForgotPasswordScreen() {
       <View style={styles.decorWrap}>
         <AuthDecor />
         <View style={styles.inner}>
-          <View style={authScreenStyles.header}>
-            <Text style={screenStyles.sectionOverline}>Account recovery</Text>
-            <Text style={authScreenStyles.title}>Reset password</Text>
-            <Text style={authScreenStyles.sub}>
+          <View style={getAuthScreenStyles().header}>
+            <Text style={getScreenStyles().sectionOverline}>Account recovery</Text>
+            <Text style={getAuthScreenStyles().title}>Reset password</Text>
+            <Text style={getAuthScreenStyles().sub}>
               Enter your email and we will send next steps.
             </Text>
           </View>
 
-          <View style={authScreenStyles.card}>
+          <View style={getAuthScreenStyles().card}>
             <TextField
               label="Email"
               value={email}
@@ -66,7 +68,7 @@ export function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   decorWrap: { position: 'relative', flexGrow: 1 },
   inner: { paddingTop: spacing.md, gap: spacing.lg, paddingBottom: spacing.xl },
 });

@@ -4,9 +4,11 @@ import { ChatsModule } from '../chats/chats.module';
 import { CommunityPostsModule } from '../community-posts/community-posts.module';
 import { ModerationModule } from '../moderation/moderation.module';
 import { SettingsModule } from '../settings/settings.module';
+import { DisplayModule } from '../display/display.module';
 import { AdminUsersController } from './admin-users.controller';
 import { AdminCommunitiesController } from './admin-communities.controller';
 import { AdminCommunityPostsController } from './admin-community-posts.controller';
+import { AdminDisplayPostsController } from './admin-display-posts.controller';
 import { AdminReportsController } from './admin-reports.controller';
 import { AdminChatsController } from './admin-chats.controller';
 
@@ -23,11 +25,19 @@ import { AdminChatsController } from './admin-chats.controller';
  * its controllers to be picked up.
  */
 @Module({
-  imports: [UsersModule, ChatsModule, CommunityPostsModule, ModerationModule, SettingsModule],
+  imports: [
+    UsersModule,
+    ChatsModule,
+    CommunityPostsModule,
+    DisplayModule,
+    ModerationModule,
+    SettingsModule,
+  ],
   controllers: [
     AdminUsersController,
     AdminCommunitiesController,
     AdminCommunityPostsController,
+    AdminDisplayPostsController,
     AdminReportsController,
     AdminChatsController,
   ],

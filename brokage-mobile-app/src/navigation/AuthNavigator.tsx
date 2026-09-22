@@ -3,13 +3,14 @@ import React from 'react';
 import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { RegisterScreen } from '../screens/auth/RegisterScreen';
+import { VerifyOtpScreen } from '../screens/auth/VerifyOtpScreen';
 import { colors } from '../theme/colors';
 import type { AuthStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
 const authHeader = {
-  headerStyle: { backgroundColor: colors.background },
+  headerStyle: { backgroundColor: colors.topBar },
   headerTintColor: colors.primary,
   headerShadowVisible: false,
   headerTitleStyle: {
@@ -47,6 +48,16 @@ export function AuthNavigator() {
           headerShown: true,
           title: 'Reset password',
           headerBackTitle: 'Log in',
+        }}
+      />
+      <Stack.Screen
+        name="VerifyOtp"
+        component={VerifyOtpScreen}
+        options={{
+          ...authHeader,
+          headerShown: true,
+          title: 'Verify',
+          headerBackTitle: 'Back',
         }}
       />
     </Stack.Navigator>

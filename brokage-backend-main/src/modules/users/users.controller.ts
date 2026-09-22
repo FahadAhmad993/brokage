@@ -55,7 +55,7 @@ export class UsersController {
   }
 
   @ApiOperation({
-    summary: 'Get another user\'s public profile (e.g. a chat peer)',
+    summary: "Get another user's public profile (e.g. a chat peer)",
   })
   @ApiParam({ name: 'id', description: 'Target user id' })
   @ApiEnvelopeResponse({ description: 'Public profile fetched successfully' })

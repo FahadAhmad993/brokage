@@ -85,12 +85,6 @@ export class ChatThreadEntity {
   updatedAt!: Date;
 }
 
-
-
-
-
-
-
 //comment data 1
 
 // import {

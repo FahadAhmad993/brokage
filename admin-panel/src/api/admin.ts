@@ -39,6 +39,8 @@ export type CustomPostField = {
 export type AppSettings = {
   id: string;
   pricePerHourPkr: number;
+  /** PKR/hour rate for Display posts (Profile → Display) — separate product from the Community ad feed. */
+  displayPricePerHourPkr: number;
   minImages: number;
   maxImages: number;
   cityRequired: boolean;
@@ -210,6 +212,51 @@ export function deleteAd(id: string) {
   return apiRequest(`/admin/community-posts/${id}`, { method: 'DELETE' });
 }
 
+// ---- Display posts (Profile → Display) -------------------------------------
+
+export type DisplayPostStatus = 'pending' | 'active' | 'sold' | 'expired' | 'rejected';
+
+export type AdminDisplayPost = {
+  id: string;
+  userId: string;
+  images: string[];
+  marlaSize: number;
+  city: string | null;
+  area: string | null;
+  description: string | null;
+  extraFields: Record<string, string>;
+  durationHours: number;
+  price: number;
+  status: DisplayPostStatus;
+  expiresAt: string | null;
+  remainingSeconds: number | null;
+  soldAt: string | null;
+  authorName: string;
+  authorAvatarUrl: string | null;
+  authorEmail: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+};
+
+export function fetchDisplayPosts() {
+  return apiRequest<AdminDisplayPost[]>('/admin/display-posts');
+}
+
+export function verifyDisplayPost(id: string) {
+  return apiRequest(`/admin/display-posts/${id}/verify`, { method: 'PATCH' });
+}
+
+export function rejectDisplayPost(id: string, reason?: string) {
+  return apiRequest(`/admin/display-posts/${id}/reject`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export function deleteDisplayPostAdmin(id: string) {
+  return apiRequest(`/admin/display-posts/${id}`, { method: 'DELETE' });
+}
+
 // ---- Chat management (permanent deletion) ---------------------------------
 
 export type ChatDeletionResult = { deleted: number };
@@ -222,6 +269,63 @@ export function deleteAllCommunityMessages() {
 /** Permanently deletes every message in every private (direct) chat. Threads and profiles are kept. */
 export function deleteAllPrivateMessages() {
   return apiRequest<ChatDeletionResult>('/admin/chats/private', { method: 'DELETE' });
+}
+
+// ---- Chat oversight (read-only monitoring) ---------------------------------
+
+export type ChatThreadParticipant = {
+  id: string;
+  displayName: string;
+  email: string | null;
+  avatarUrl: string | null;
+  isBlocked: boolean;
+};
+
+export type AdminChatThread = {
+  id: string;
+  participants: ChatThreadParticipant[];
+  lastMessage: {
+    body: string;
+    imageUrl: string | null;
+    createdAt: string;
+    authorId: string;
+  } | null;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminChatMessage = {
+  id: string;
+  threadId: string;
+  authorId: string;
+  authorName: string;
+  authorAvatarUrl: string | null;
+  body: string;
+  createdAt: string;
+  imageUrl: string | null;
+  isDeletedForEveryone: boolean;
+};
+
+export type Paginated<T> = {
+  items: T[];
+  pagination: { page: number; limit: number; total: number; hasNext: boolean };
+};
+
+/** List every direct (1-to-1) conversation platform-wide — "who's talking to whom". */
+export function fetchAdminChatThreads(params?: { page?: number; search?: string }) {
+  const query = new URLSearchParams();
+  if (params?.page) query.set('page', String(params.page));
+  if (params?.search) query.set('search', params.search);
+  const qs = query.toString();
+  return apiRequest<Paginated<AdminChatThread>>(`/admin/chats/threads${qs ? `?${qs}` : ''}`);
+}
+
+/** Full, unfiltered message history for one thread — for moderation review. */
+export function fetchAdminThreadMessages(threadId: string, page = 1) {
+  return apiRequest<Paginated<AdminChatMessage>>(
+    `/admin/chats/threads/${threadId}/messages?page=${page}&limit=50`,
+  );
 }
 
 // ---- Reports --------------------------------------------------------------

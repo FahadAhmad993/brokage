@@ -25,6 +25,7 @@ import {
   View,
 } from 'react-native';
 import { DEFAULT_USER_LISTING_IMAGE } from '../../../api/mockData';
+import { useThemedStyles } from '../../../hooks/useThemedStyles';
 import type { ListingFormValues } from '../../../types/listingForm';
 import { colors } from '../../../theme/colors';
 import { iconStroke } from '../../../theme/icons';
@@ -62,6 +63,7 @@ function MiniField({
   keyboardType?: 'default' | 'decimal-pad' | 'number-pad';
   suffix?: string;
 }) {
+  const styles = useThemedStyles(buildStyles);
   const { control } = useFormContext<ListingFormValues>();
   return (
     <View style={styles.miniCol}>
@@ -96,6 +98,7 @@ function MiniField({
 }
 
 export function StepReview({ onEditPropertyDetails }: Props) {
+  const styles = useThemedStyles(buildStyles);
   const { control, watch, setValue } = useFormContext<ListingFormValues>();
 
   const title = watch('title');
@@ -268,7 +271,7 @@ export function StepReview({ onEditPropertyDetails }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   root: { gap: 0 },
   previewCard: {
     backgroundColor: colors.surface,

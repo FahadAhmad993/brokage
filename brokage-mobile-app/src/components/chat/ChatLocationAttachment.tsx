@@ -16,6 +16,7 @@ import { layout } from '../../theme/layout';
 import { shadows } from '../../theme/shadows';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 import {
   STATIC_MAP_GRID,
   STATIC_MAP_TILE_SIZE,
@@ -39,6 +40,7 @@ const SCALE = PREVIEW_WIDTH / GRID_PIXELS;
 const PREVIEW_HEIGHT = GRID_PIXELS * SCALE;
 
 export function ChatLocationAttachment({ location, mine }: Props) {
+  const styles = useThemedStyles(buildStyles);
   const preview = React.useMemo(
     () => buildStaticMapPreview(location.latitude, location.longitude),
     [location.latitude, location.longitude],
@@ -182,7 +184,7 @@ export function ChatLocationAttachment({ location, mine }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   wrap: {
     width: PREVIEW_WIDTH,
     borderRadius: layout.radius.lg,

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddChatMessageImageUrl1786125724472
-  implements MigrationInterface
-{
+export class AddChatMessageImageUrl1786125724472 implements MigrationInterface {
   name = 'AddChatMessageImageUrl1786125724472';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

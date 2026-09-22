@@ -99,9 +99,9 @@ export class ChatsController {
       dto.body,
       dto.clientId,
       dto.locationContext,
-        dto.imageUrl,
-        dto.communityPostContext,
-        dto.replyToCommunityMessage,
+      dto.imageUrl,
+      dto.communityPostContext,
+      dto.replyToCommunityMessage,
     );
     // Mirror the gateway's broadcast so REST-fallback sends still reach
     // every connected device in real time.
@@ -129,7 +129,9 @@ export class ChatsController {
       "Delete a chat from the current user's inbox only — other participants keep the thread untouched, and it reappears for this user if a new message arrives",
   })
   @ApiParam({ name: 'threadId', format: 'uuid' })
-  @ApiEnvelopeResponse({ description: 'Thread deleted from inbox successfully' })
+  @ApiEnvelopeResponse({
+    description: 'Thread deleted from inbox successfully',
+  })
   @ApiCommonErrorResponses()
   @HttpCode(200)
   @Delete('threads/:threadId')

@@ -18,6 +18,7 @@ import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 import { useFavoritesStore } from '../stores/favoritesStore';
 import { coreStatsSummaryLine } from '../utils/propertyFeatures';
+import { useThemedStyles } from '../hooks/useThemedStyles';
 
 type Props = {
   property: Property;
@@ -28,6 +29,7 @@ type Props = {
 const IMAGE_ASPECT = 16 / 11.5;
 
 export function PropertyCard({ property, onPress }: Props) {
+  const styles = useThemedStyles(buildStyles);
   const { width: windowWidth } = useWindowDimensions();
   const isFavorite = useFavoritesStore(s => s.ids.has(property.id));
   const toggleFavorite = useFavoritesStore(s => s.toggle);
@@ -137,7 +139,7 @@ export function PropertyCard({ property, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: '100%',

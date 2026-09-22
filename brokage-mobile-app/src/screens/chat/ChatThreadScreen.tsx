@@ -21,6 +21,9 @@ import {
 // import { MapPin, Send } from 'lucide-react-native';
 import {
   Camera,
+  Check,
+  CheckCheck,
+  Clock,
   Copy,
   Image as ImageIcon,
   MapPin,
@@ -30,6 +33,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react-native';
+import NetInfo from '@react-native-community/netinfo';
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {
@@ -91,6 +95,7 @@ import { ReportSheetModal } from '../../components/chat/ReportSheetModal';
 import { ActionMenu, type ActionMenuItem } from '../../components/ActionMenu';
 
 import { ChatLocationAttachment } from '../../components/chat/ChatLocationAttachment';
+import { ChatImageViewerModal } from '../../components/chat/ChatImageViewerModal';
 import { captureCurrentLocation, describeLocation } from '../../lib/shareLocation';
 // import {pickListingImages,takeChatPhoto,} from '../../lib/pickListingImages';
 import { uploadImageToCloudinary } from '../../lib/cloudinary';
@@ -99,7 +104,13 @@ import {
   navigateToHomeStackScreen,
 } from '../../navigation/crossTabNavigate';
 import type { MainStackParamList, MainTabParamList } from '../../navigation/types';
-import type { ChatListingRef, ChatLocationRef, ChatMessage, ChatThread } from '../../types/models';
+import type {
+  ChatListingRef,
+  ChatLocationRef,
+  ChatMessage,
+  ChatMessageStatus,
+  ChatThread,
+} from '../../types/models';
 import { useActiveChatThreadStore } from '../../stores/activeChatThreadStore';
 import { useAuthStore } from '../../stores/authStore';
 import { colors } from '../../theme/colors';
@@ -108,16 +119,22 @@ import { layout } from '../../theme/layout';
 import { shadows } from '../../theme/shadows';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 import { formatMessageTime } from '../../utils/formatChatTime';
 import {
   filterMessagesInInfinitePages,
   flattenMessagePages,
   mapMessagesInInfinitePages,
   markMessageClientStatusInPages,
-  mergeIncomingIntoMessagesInfinite,
+  seedOrMergeOwnMessage,
   type MessagesPageResult,
 } from '../../chat/messagePages';
 import { sameId } from '../../chat/threadUnread';
+import {
+  enqueueOutboxMessage,
+  isConnectivityError,
+  removeOutboxMessage,
+} from '../../chat/offlineOutbox';
 
 
 type Route = RouteProp<MainStackParamList, 'ChatThread'>;
@@ -198,7 +215,8 @@ function GlowingMessageWrap({ children }: { children: React.ReactNode }) {
   );
 }
 
-const chatThreadNavTitleStyles = StyleSheet.create({
+const buildChatThreadNavTitleStyles = () =>
+  StyleSheet.create({
   wrap: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -233,6 +251,7 @@ function ChatThreadNavTitle({
   statusLabel: string;
   onPress?: () => void;
 }) {
+  const chatThreadNavTitleStyles = useThemedStyles(buildChatThreadNavTitleStyles);
   const content = (
     <View style={chatThreadNavTitleStyles.wrap}>
       <Text numberOfLines={1} style={chatThreadNavTitleStyles.title}>
@@ -280,6 +299,7 @@ function SenderAvatar({
   avatarUrl?: string;
   name: string;
 }) {
+  const senderAvatarStyles = useThemedStyles(buildSenderAvatarStyles);
   const [failed, setFailed] = React.useState(false);
   if (avatarUrl && !failed) {
     return (
@@ -298,7 +318,8 @@ function SenderAvatar({
   );
 }
 
-const senderAvatarStyles = StyleSheet.create({
+const buildSenderAvatarStyles = () =>
+  StyleSheet.create({
   image: {
     width: 24,
     height: 24,
@@ -402,6 +423,7 @@ type AdPhase = 'cover' | 'photos' | 'closing';
  * arrives and again as it finishes, so each ad visibly opens and closes.
  */
 function AdAlbumCover({ images }: { images: string[] }) {
+  const styles = useThemedStyles(buildStyles);
   const cards = images.slice(0, AD_COVER_MAX_CARDS);
   // Drawn back-to-front so the first photo ends up on top of the pile.
   const ordered = [...cards].reverse();
@@ -447,6 +469,7 @@ function AdImageAlbum({
   onNext: () => void;
   onPrev: () => void;
 }) {
+  const styles = useThemedStyles(buildStyles);
   /*
    * Warm Fresco's / the iOS image cache for EVERY photo as soon as the ad
    * appears.
@@ -552,6 +575,7 @@ function AdImageAlbum({
  * photos rendering black).
  */
 function AdAlbumFrame({ uri }: { uri: string }) {
+  const styles = useThemedStyles(buildStyles);
   const enter = useRef(new Animated.Value(0)).current;
   const [failed, setFailed] = React.useState(false);
 
@@ -613,6 +637,7 @@ function GroupAdsCarousel({
   // with that user, with the ad copied along as the related listing.
   onAdvertiserPress?: (ad: GroupAd) => void;
 }) {
+  const styles = useThemedStyles(buildStyles);
   const { width: screenWidth } = useWindowDimensions();
 
   const validAds = useMemo(
@@ -874,6 +899,7 @@ function GroupAdsCarousel({
 
 
 export function ChatThreadScreen() {
+  const styles = useThemedStyles(buildStyles);
   const route = useRoute<Route>();
   const navigation = useNavigation<Nav>();
   const isFocused = useIsFocused();
@@ -924,6 +950,8 @@ export function ChatThreadScreen() {
    * reply.
    */
   const [pendingReply, setPendingReply] = React.useState(route.params.replyToMessage ?? null);
+  /** Full-screen WhatsApp-style photo viewer — null/undefined = closed. */
+  const [viewerImageUrl, setViewerImageUrl] = React.useState<string | null>(null);
   /**
    * `ChatThread` is a single screen reused across navigations (see
    * `navigateToChatsThread` / `crossTabNavigate.ts` — it dispatches
@@ -1090,16 +1118,20 @@ export function ChatThreadScreen() {
 
   const upsertMessage = useCallback(
     (message: ChatMessage) => {
+      // `seedOrMergeOwnMessage` (unlike the socket-only merge helper) is
+      // safe to call on an empty/undefined cache — needed so a message
+      // typed the moment a thread is opened offline (before any page has
+      // ever loaded) still renders instantly instead of silently vanishing.
       queryClient.setQueryData<InfiniteData<MessagesPageResult> | undefined>(
         ['messages', threadId, user?.id],
-        prev => mergeIncomingIntoMessagesInfinite(prev, message),
+        prev => seedOrMergeOwnMessage(prev, message),
       );
     },
     [queryClient, threadId, user?.id],
   );
 
   const markMessageStatus = useCallback(
-    (clientId: string, status: 'sending' | 'sent' | 'failed') => {
+    (clientId: string, status: ChatMessageStatus) => {
       queryClient.setQueryData<InfiniteData<MessagesPageResult> | undefined>(
         ['messages', threadId, user?.id],
         prev => markMessageClientStatusInPages(prev, clientId, status),
@@ -1109,7 +1141,7 @@ export function ChatThreadScreen() {
   );
 
 const send = useMutation({
-  mutationFn: ({
+  mutationFn: async ({
     body,
     clientId,
     locationContext,
@@ -1121,8 +1153,17 @@ const send = useMutation({
     locationContext?: ChatMessage['locationContext'];
     imageUrl?: string;
     replyToCommunityMessage?: ChatMessage['replyToCommunityMessage'];
-  }) =>
-    sendChatMessage(
+  }) => {
+    // Check connectivity *before* touching the network. Previously, sending
+    // while offline meant waiting out a full socket ack timeout (up to
+    // 10s) before the bubble flipped to "failed" — this short-circuits that
+    // immediately so the composer never feels stuck, and the message drops
+    // straight into the "queued" (clock icon) state instead.
+    const net = await NetInfo.fetch();
+    if (!net.isConnected || net.isInternetReachable === false) {
+      throw new Error('offline: message queued');
+    }
+    return sendChatMessage(
       threadId,
       user!,
       body,
@@ -1131,12 +1172,27 @@ const send = useMutation({
       imageUrl,
       undefined,
       replyToCommunityMessage,
-    ),
+    );
+  },
 
   onMutate: ({ body, clientId, locationContext, imageUrl, replyToCommunityMessage }) => {
     setSendError(null);
 
     if (user) {
+      // Persist to the on-disk outbox *before* anything else. This is what
+      // guarantees the message survives an app kill/crash while offline —
+      // `AppProviders`' NetInfo listener will find and send it later even
+      // if this screen was never reopened.
+      void enqueueOutboxMessage({
+        clientId,
+        threadId,
+        body: body.trim(),
+        locationContext,
+        imageUrl,
+        replyToCommunityMessage,
+        queuedAt: new Date().toISOString(),
+      });
+
       upsertMessage({
         id: `optimistic-${clientId}`,
         threadId,
@@ -1146,6 +1202,9 @@ const send = useMutation({
         body: body.trim(),
         createdAt: new Date().toISOString(),
         clientId,
+        // Instant, optimistic — shows immediately regardless of connection;
+        // flips to 'queued' (clock) in `onError` if we're actually offline,
+        // or 'sent' (single check) the moment the server confirms it.
         status: 'sending',
 
         ...(locationContext ? { locationContext } : {}),
@@ -1164,15 +1223,20 @@ const send = useMutation({
       );
     }
 
+    // Clear the composer & reply preview immediately — sending must never
+    // feel gated on the network round trip.
+    setDraft('');
+    setPendingReply(null);
     nearNewestRef.current = true;
     pinToLatest(true);
 
     return { clientId };
   },
 
-  onSuccess: message => {
-    setDraft('');
-    setPendingReply(null);
+  onSuccess: (message, _vars, context) => {
+    if (context?.clientId) {
+      void removeOutboxMessage(threadId, context.clientId);
+    }
 
     upsertMessage({
       ...message,
@@ -1187,13 +1251,22 @@ const send = useMutation({
   },
 
   onError: (err, _vars, context) => {
-    if (context?.clientId) {
-      markMessageStatus(
-        context.clientId,
-        'failed',
-      );
+    if (!context?.clientId) {
+      return;
+    }
+    if (isConnectivityError(err)) {
+      // Not a rejection — just no connection right now. Leave it queued
+      // (already persisted in `onMutate`); the app-level auto-flush will
+      // deliver it the instant connectivity returns, no retry tap needed.
+      markMessageStatus(context.clientId, 'queued');
+      return;
     }
 
+    // A genuine server rejection (blocked user, validation, etc.) — this
+    // will never succeed by silently retrying, so drop it from the outbox
+    // and let the person see a real failed state with a manual retry.
+    void removeOutboxMessage(threadId, context.clientId);
+    markMessageStatus(context.clientId, 'failed');
     setSendError(
       errorMessage(
         err,
@@ -1480,15 +1553,15 @@ const send = useMutation({
       ) {
         return;
       }
-      // Mark the user's own previously-sent messages as read up to readAt.
-      // We don't surface a per-message tick yet; this just keeps the cache
-      // honest so a future "Read at HH:MM" footer can use it.
+      // Mark the user's own previously-sent messages as read up to readAt —
+      // this is what flips the WhatsApp-style single check to a double
+      // (tinted) check the instant the peer opens the thread.
       queryClient.setQueryData<InfiniteData<MessagesPageResult> | undefined>(
         ['messages', threadId, user?.id],
         prev =>
           mapMessagesInInfinitePages(prev, m =>
-            m.authorId === user?.id && m.status !== 'failed'
-              ? { ...m, status: 'sent' }
+            m.authorId === user?.id && (m.status === 'sent' || m.status === 'read')
+              ? { ...m, status: 'read' }
               : m,
           ),
       );
@@ -2115,8 +2188,11 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
   }
 
   const mine = item.authorId === user?.id;
+  const isQueued = mine && item.status === 'queued';
   const isSending = mine && item.status === 'sending';
   const isFailed = mine && item.status === 'failed';
+  const isRead = mine && item.status === 'read';
+  const isSent = mine && item.status === 'sent';
   const isDeleted = item.isDeletedForEveryone === true;
   // Group-chat messages starting with the trigger letter get a pulsing
   // glow so they stand out from the rest of the timeline.
@@ -2160,6 +2236,8 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
           styles.bubbleImage,
         isSending &&
           styles.bubbleSending,
+        isQueued &&
+          styles.bubbleSending,
         isFailed &&
           styles.bubbleFailed,
       ]}
@@ -2199,11 +2277,16 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
 
           {/* Image */}
           {item.imageUrl ? (
-            <Image
-              source={{ uri: item.imageUrl }}
-              style={styles.chatImage}
-              resizeMode="cover"
-            />
+            <Pressable
+              onPress={() => setViewerImageUrl(item.imageUrl ?? null)}
+              accessibilityRole="button"
+              accessibilityLabel="Open photo">
+              <Image
+                source={{ uri: item.imageUrl }}
+                style={styles.chatImage}
+                resizeMode="cover"
+              />
+            </Pressable>
           ) : null}
 
           {/* Text */}
@@ -2238,9 +2321,20 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
             <ChatCommunityPostAttachment
               post={item.communityPostContext}
               onPress={() => {
+                const ctx = item.communityPostContext!;
+                if (ctx.kind === 'display') {
+                  // Display posts live on the broker's Display page, not
+                  // in the Community feed — CommunityPostDetails wouldn't
+                  // recognize this id at all.
+                  navigation.navigate('UserDisplay', {
+                    userId: ctx.authorId,
+                    displayName: ctx.authorName ?? undefined,
+                  });
+                  return;
+                }
                 navigation.navigate('CommunityPostDetails', {
-                  postId: item.communityPostContext!.id,
-                  post: item.communityPostContext!,
+                  postId: ctx.id,
+                  post: ctx,
                 });
               }}
             />
@@ -2266,10 +2360,33 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
           {formatMessageTime(item.createdAt)}
         </Text>
 
+        {/* WhatsApp-style delivery ticks, own messages only:
+              queued  → clock (waiting for connection, saved offline)
+              sending → clock (in-flight, online)
+              sent    → single check
+              read    → double check, tinted to stand out */}
+        {isQueued ? (
+          <View style={styles.tickRow} accessibilityLabel="Queued, will send when online">
+            <Clock size={13} color={colors.textMuted} strokeWidth={2} />
+          </View>
+        ) : null}
+
         {isSending ? (
-          <Text style={styles.metaHint}>
-            Sending…
-          </Text>
+          <View style={styles.tickRow} accessibilityLabel="Sending">
+            <Clock size={13} color={colors.textMuted} strokeWidth={2} />
+          </View>
+        ) : null}
+
+        {isSent ? (
+          <View style={styles.tickRow} accessibilityLabel="Sent">
+            <Check size={14} color={colors.textMuted} strokeWidth={2.5} />
+          </View>
+        ) : null}
+
+        {isRead ? (
+          <View style={styles.tickRow} accessibilityLabel="Read">
+            <CheckCheck size={14} color={colors.primary} strokeWidth={2.5} />
+          </View>
         ) : null}
 
         {isFailed ? (
@@ -2303,6 +2420,11 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
         mine
           ? styles.bubbleWrapMine
           : styles.bubbleWrapThem,
+        // A quoted reply preview needs real width to read comfortably —
+        // without this, a short reply ("Ok!") on a long quoted message
+        // shrink-wraps the whole bubble down to "Ok!"'s width, squeezing
+        // the quote into a tall, cramped, near-unreadable column.
+        item.replyToCommunityMessage ? styles.bubbleWrapWithQuote : null,
       ]}
     >
       {/* Group chat author — tap opens their profile (not a chat). */}
@@ -2508,6 +2630,12 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
          <View
   style={[
     styles.composerDock,
+    // Inline override so the composer bar reacts to theme switches
+    // immediately (module-level StyleSheet colors are baked in once and
+    // don't repaint on their own) and reads a deliberately different tone
+    // + top hairline than the header bar, so the two chrome bars are never
+    // visually identical again.
+    { backgroundColor: colors.bottomBar, borderTopColor: colors.bottomBarBorder },
     { paddingBottom: composerBottomPad },
   ]}
 >
@@ -2619,7 +2747,7 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
     </View>
   ) : null}
 
-  <View style={styles.composer}>
+  <View style={[styles.composer, { backgroundColor: colors.bottomBar }]}>
         {sendError ? (
           <Text style={styles.sendErrorText} accessibilityLiveRegion="polite">
             {sendError}
@@ -2639,7 +2767,10 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
               <Text style={styles.replyPreviewAuthor} numberOfLines={1}>
                 {pendingReply.authorName ?? 'Community member'}
               </Text>
-              <Text style={styles.replyPreviewBody} numberOfLines={1}>
+              {/* Was capped to a single line, which silently clipped most
+                  quoted messages behind "…" — now shows the full quote up
+                  to a reasonable cap, same as WhatsApp's reply preview. */}
+              <Text style={styles.replyPreviewBody} numberOfLines={4}>
                 {pendingReply.body?.trim()
                   ? pendingReply.body
                   : pendingReply.imageUrl
@@ -2849,6 +2980,10 @@ numberOfLines={1}
         items={messageMenuItems}
         align="right"
       />
+      <ChatImageViewerModal
+        imageUrl={viewerImageUrl}
+        onClose={() => setViewerImageUrl(null)}
+      />
     </SafeAreaView>
   );
 
@@ -2870,7 +3005,7 @@ numberOfLines={1}
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
   safe: { flex: 1, backgroundColor: colors.background },
   /** Required so the list does not grow to full message height and shove the composer under the keyboard (especially Android + adjustResize). */
@@ -3166,6 +3301,11 @@ groupAdDotActive: {
   bubbleWrap: { maxWidth: '85%' },
   bubbleWrapMine: { alignSelf: 'flex-end' },
   bubbleWrapThem: { alignSelf: 'flex-start' },
+  /** Forces the bubble to use most of its available width when it holds a
+   *  quoted reply preview, instead of shrink-wrapping to a short reply's
+   *  own text width (which otherwise crushes the quote into a narrow
+   *  column of wrapped lines). */
+  bubbleWrapWithQuote: { width: '85%' },
   /** Group chat author header: avatar + name above the first bubble in a run. */
   authorRow: {
     flexDirection: 'row',
@@ -3236,6 +3376,12 @@ bubbleImage: {
   },
   bubbleMetaRowMine: { alignSelf: 'flex-end', marginRight: 4 },
   bubbleMetaRowThem: { alignSelf: 'flex-start', marginLeft: 4 },
+  /** Wraps the delivery-tick icon (queued/sent/read) next to the timestamp. */
+  tickRow: {
+    marginLeft: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   timeRow: {
     ...typography.caption,
     fontSize: 11,
@@ -3358,11 +3504,14 @@ bubbleImage: {
   },
   replyPreviewBar: {
     flexDirection: 'row',
-    alignItems: 'center',
+    // Was 'center' — with the quote now allowed to wrap to several lines,
+    // centering made the accent bar/thumbnail float oddly next to a tall
+    // text block. 'flex-start' keeps them pinned to the top like WhatsApp.
+    alignItems: 'flex-start',
     gap: spacing.sm,
     backgroundColor: colors.surfaceMuted,
     borderRadius: layout.radius.md,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     marginBottom: spacing.sm,
   },
@@ -3379,6 +3528,9 @@ bubbleImage: {
   },
   replyPreviewTextWrap: {
     flex: 1,
+    // Room for the cancel (X) button so long quoted text wraps around it
+    // instead of running underneath.
+    paddingRight: spacing.xs,
   },
   replyPreviewAuthor: {
     ...typography.caption,
@@ -3388,6 +3540,7 @@ bubbleImage: {
   replyPreviewBody: {
     ...typography.bodySmall,
     color: colors.textSecondary,
+    lineHeight: 18,
   },
   replyPreviewCancel: {
     padding: spacing.xs,

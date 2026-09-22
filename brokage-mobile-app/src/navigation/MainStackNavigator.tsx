@@ -13,10 +13,14 @@ import { EditProfileScreen } from '../screens/profile/EditProfileScreen';
 import { SettingsScreen } from '../screens/profile/SettingsScreen';
 import { UserProfileScreen } from '../screens/profile/UserProfileScreen';
 import { colors } from '../theme/colors';
+import { useThemedStyles } from '../hooks/useThemedStyles';
 import { MainTabNavigator } from './MainTabNavigator';
 import type { MainStackParamList } from './types';
 import { CreateCommunityPostScreen } from '../screens/community/CreateCommunityPostScreen';
 import { CommunityPostDetailsScreen } from '../screens/community/CommunityPostDetailsScreen';
+import { DisplayScreen } from '../screens/display/DisplayScreen';
+import { CreateDisplayPostScreen } from '../screens/display/CreateDisplayPostScreen';
+import { DisplaySearchResultsScreen } from '../screens/display/DisplaySearchResultsScreen';
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
 /**
@@ -74,6 +78,7 @@ function ChatThreadHeaderLeft({
  * in the gesture area beneath the bar.
  */
 function TabsHost() {
+  const tabsHostStyles = useThemedStyles(buildTabsHostStyles);
   const insets = useSafeAreaInsets();
   return (
     <View style={tabsHostStyles.host}>
@@ -91,7 +96,8 @@ function TabsHost() {
   );
 }
 
-const tabsHostStyles = StyleSheet.create({
+const buildTabsHostStyles = () =>
+  StyleSheet.create({
   host: { flex: 1, backgroundColor: colors.background },
   gestureBackdrop: {
     position: 'absolute',
@@ -123,7 +129,7 @@ export function MainStackNavigator() {
     <Stack.Navigator
       initialRouteName="Tabs"
       screenOptions={{
-        headerStyle: { backgroundColor: colors.background },
+        headerStyle: { backgroundColor: colors.topBar },
         headerTintColor: colors.primary,
         headerShadowVisible: false,
         headerTitleStyle: {
@@ -194,6 +200,28 @@ export function MainStackNavigator() {
         name="BlockedUsers"
         component={BlockedUsersScreen}
         options={{ headerTitle: '' }}
+      />
+      {/* "My Display" / viewing someone else's, and its "Add Post" form —
+          each renders its own header, so hide the native one here. */}
+      <Stack.Screen
+        name="MyDisplay"
+        component={DisplayScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="UserDisplay"
+        component={DisplayScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="CreateDisplayPost"
+        component={CreateDisplayPostScreen}
+        options={{ headerShown: false, presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="DisplaySearchResults"
+        component={DisplaySearchResultsScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

@@ -30,14 +30,50 @@ export class UsersService {
     displayName: string;
     passwordHash: string;
     avatarUrl?: string;
+    isEmailVerified?: boolean;
   }) {
     const user = this.usersRepository.create({
       email: payload.email.toLowerCase(),
       displayName: payload.displayName,
       passwordHash: payload.passwordHash,
       avatarUrl: payload.avatarUrl,
+      // Explicit override of the column's DB-level default (`true`, kept
+      // that way so pre-existing accounts weren't retroactively locked
+      // out when this feature shipped) — a fresh signup always starts
+      // unverified unless the caller says otherwise.
+      isEmailVerified: payload.isEmailVerified ?? false,
     });
     return this.usersRepository.save(user);
+  }
+
+  async markEmailVerified(userId: string): Promise<void> {
+    await this.usersRepository.update(
+      { id: userId },
+      { isEmailVerified: true },
+    );
+  }
+
+  /**
+   * Re-registering with an email that already exists but never finished
+   * verification (e.g. the OTP email failed to send the first time) — a
+   * plain "email already registered" would leave that account stuck
+   * forever with no way back in, since login also needs a working OTP
+   * send. Updates the password/name in case they were mistyped the first
+   * time and hands back the same row for a fresh OTP.
+   */
+  async updateUnverifiedRegistration(
+    userId: string,
+    payload: { displayName: string; passwordHash: string; avatarUrl?: string },
+  ): Promise<UserEntity> {
+    await this.usersRepository.update(
+      { id: userId },
+      {
+        displayName: payload.displayName,
+        passwordHash: payload.passwordHash,
+        avatarUrl: payload.avatarUrl,
+      },
+    );
+    return (await this.findById(userId))!;
   }
 
   async updateProfile(
@@ -185,7 +221,12 @@ export class UsersService {
     if (!result.affected) {
       throw new NotFoundException('User not found');
     }
-    return { success: true, userId, [flag]: value, disabledReason: update.disabledReason };
+    return {
+      success: true,
+      userId,
+      [flag]: value,
+      disabledReason: update.disabledReason,
+    };
   }
 
   setBlocked(userId: string, blocked: boolean, reason?: string) {

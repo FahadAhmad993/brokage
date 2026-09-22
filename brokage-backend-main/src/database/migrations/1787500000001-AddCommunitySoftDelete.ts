@@ -23,7 +23,9 @@ export class AddCommunitySoftDelete1787500000001 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_chat_threads_deletedAt"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_chat_threads_deletedAt"`,
+    );
     await queryRunner.query(`
       ALTER TABLE "chat_threads"
       DROP COLUMN IF EXISTS "deletedAt",

@@ -8,6 +8,8 @@ import {
 } from 'react-native';
 
 import type { ChatMessage } from '../../types/models';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import { colors } from '../../theme/colors';
 
 type Props = {
   post: NonNullable<ChatMessage['communityPostContext']>;
@@ -18,7 +20,9 @@ export function ChatCommunityPostAttachment({
   post,
   onPress,
 }: Props) {
+  const styles = useThemedStyles(buildStyles);
   const image = post.images?.[0];
+  const isDisplay = post.kind === 'display';
 
   return (
     <Pressable
@@ -36,7 +40,7 @@ export function ChatCommunityPostAttachment({
       ) : null}
 
       <View style={styles.content}>
-        <Text style={styles.label}>ADD</Text>
+        <Text style={styles.label}>{isDisplay ? 'DISPLAY' : 'ADD'}</Text>
 
         <Text
           style={styles.title}
@@ -47,23 +51,25 @@ export function ChatCommunityPostAttachment({
         <Text
           style={styles.city}
           numberOfLines={1}>
-          {post.city}
+          {isDisplay ? `${post.marlaSize} Marla` : post.city}
         </Text>
 
         <Text style={styles.tap}>
-          Tap to view details
+          {isDisplay ? "Tap to view broker's Display" : 'Tap to view details'}
         </Text>
       </View>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   card: {
     width: 260,
     borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     marginTop: 4,
   },
 
@@ -83,23 +89,25 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 10,
     fontWeight: '700',
+    color: colors.accentBrown,
     marginBottom: 4,
   },
 
   title: {
     fontSize: 16,
     fontWeight: '700',
+    color: colors.textPrimary,
   },
 
   city: {
     marginTop: 4,
     fontSize: 12,
-    opacity: 0.7,
+    color: colors.textSecondary,
   },
 
   tap: {
     marginTop: 8,
     fontSize: 12,
-    opacity: 0.65,
+    color: colors.textMuted,
   },
 });

@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CheckCircle2, Info } from 'lucide-react-native';
 import { GradientButton } from '../GradientButton';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 import { registerAppAlertShow } from '../../lib/globalAppAlert';
 import { colors } from '../../theme/colors';
 import { layout } from '../../theme/layout';
@@ -78,6 +79,7 @@ export function useAppToast() {
 }
 
 export function AppAlertProvider({ children }: { children: React.ReactNode }) {
+  const styles = useThemedStyles(buildStyles);
   const [state, setState] = useState<AppAlertState | null>(null);
   const [toast, setToast] = useState<AppToastInput | null>(null);
   const insets = useSafeAreaInsets();
@@ -256,6 +258,7 @@ function DialogActions({
   buttons: AppAlertButton[];
   onPress: (b: AppAlertButton) => void;
 }) {
+  const styles = useThemedStyles(buildStyles);
   if (buttons.length === 1) {
     const b = buttons[0];
     if (b.style === 'destructive') {
@@ -375,7 +378,7 @@ function DialogActions({
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(26, 28, 29, 0.48)',

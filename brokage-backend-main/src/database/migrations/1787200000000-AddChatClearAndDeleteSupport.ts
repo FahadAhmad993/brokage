@@ -13,9 +13,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *    continuity) but its content is blanked server-side and clients render
  *    a "This message was deleted" placeholder for both sides.
  */
-export class AddChatClearAndDeleteSupport1787200000000
-  implements MigrationInterface
-{
+export class AddChatClearAndDeleteSupport1787200000000 implements MigrationInterface {
   name = 'AddChatClearAndDeleteSupport1787200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

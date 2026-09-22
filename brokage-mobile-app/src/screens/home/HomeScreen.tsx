@@ -20,14 +20,16 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { fetchProperties } from '../../api/client';
 import { GradientButton } from '../../components/GradientButton';
 import { PropertyCard } from '../../components/PropertyCard';
+import { BrokageLogo } from '../../components/BrokageLogo';
 import { navigateToProfileHome } from '../../navigation/crossTabNavigate';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 import type { HomeStackParamList, MainTabParamList } from '../../navigation/types';
 import { useAuthStore } from '../../stores/authStore';
 import type { PropertyCategory } from '../../types/models';
 import { colors } from '../../theme/colors';
 import { layout } from '../../theme/layout';
 import { spacing } from '../../theme/spacing';
-import { screenStyles } from '../../theme/screenStyles';
+import { getScreenStyles } from '../../theme/screenStyles';
 import { typography } from '../../theme/typography';
 import { initialsFromDisplay } from '../../utils/userDisplay';
 
@@ -45,6 +47,7 @@ type Nav = CompositeNavigationProp<
 
 export function HomeScreen() {
   const navigation = useNavigation<Nav>();
+  const styles = useThemedStyles(buildStyles);
   const tabBarHeight = useBottomTabBarHeight();
   const insets = useSafeAreaInsets();
   const user = useAuthStore(s => s.user);
@@ -68,6 +71,8 @@ export function HomeScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.topBar}>
         <View style={styles.wordmarkWrap}>
+          {/* Top-left brand mark — was text-only before, no logo glyph. */}
+          <BrokageLogo width={22} height={27} />
           <Text style={styles.wordmark} numberOfLines={1}>
             Brokage
           </Text>
@@ -170,7 +175,7 @@ export function HomeScreen() {
         ) : (
           <>
             <Text
-              style={[screenStyles.sectionOverline, styles.feedOverline]}
+              style={[getScreenStyles().sectionOverline, styles.feedOverline]}
               accessibilityRole="header">
               Homes for you
             </Text>
@@ -223,7 +228,7 @@ export function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   topBar: {
     flexDirection: 'row',

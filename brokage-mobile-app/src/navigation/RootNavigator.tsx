@@ -11,10 +11,12 @@ import { MainStackNavigator } from './MainStackNavigator';
 import { AccountDisabledScreen } from '../screens/auth/AccountDisabledScreen';
 import { useForcedLogoutStore } from '../stores/forcedLogoutStore';
 import type { RootStackParamList } from './types';
+import { useThemedStyles } from '../hooks/useThemedStyles';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
+  const styles = useThemedStyles(buildStyles);
   const user = useAuthStore(s => s.user);
   const ready = useAppHydration();
   const forcedLogoutReason = useForcedLogoutStore(s => s.reason);
@@ -49,7 +51,7 @@ export function RootNavigator() {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   boot: {
     flex: 1,
     alignItems: 'center',

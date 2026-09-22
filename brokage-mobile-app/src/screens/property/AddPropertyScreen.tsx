@@ -39,11 +39,13 @@ import {
 import { StepDetails } from './addProperty/StepDetails';
 import { StepMedia } from './addProperty/StepMedia';
 import { StepReview } from './addProperty/StepReview';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 
 /** Breathing room between keyboard top and action bar */
 const KEYBOARD_GAP = Platform.select({ ios: 10, android: 12 }) ?? 12;
 
 export function AddPropertyScreen() {
+  const styles = useThemedStyles(buildStyles);
   const alert = useAppAlert();
   const toast = useAppToast();
   const navigation = useNavigation();
@@ -277,7 +279,7 @@ export function AddPropertyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   column: { flex: 1 },
   scrollView: { flex: 1 },

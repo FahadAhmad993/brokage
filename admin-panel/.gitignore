@@ -12,6 +12,16 @@ dist
 dist-ssr
 *.local
 
+# Environment config — .env.development / .env.production hold real
+# backend URLs (and are loaded automatically by Vite based on `npm run
+# dev` vs `npm run build`), so keep them local-only, same as any secret.
+.env
+.env.local
+.env.development
+.env.development.local
+.env.production
+.env.production.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

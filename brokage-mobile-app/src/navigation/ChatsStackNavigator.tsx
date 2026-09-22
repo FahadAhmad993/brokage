@@ -30,7 +30,7 @@ export function ChatsStackNavigatorWithMode({
     <Stack.Navigator
       initialRouteName="ChatList"
       screenOptions={{
-        headerStyle: { backgroundColor: colors.background },
+        headerStyle: { backgroundColor: colors.topBar },
         headerTintColor: colors.primary,
         headerShadowVisible: false,
         // No `freezeOnBlur` here — when MainStack pushes ChatThread, the

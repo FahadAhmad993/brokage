@@ -75,8 +75,17 @@ export type ChatLocationRef = {
   label?: string | null;
 };
 
-/** Optimistic-UI lifecycle of a message before/after server confirmation. */
-export type ChatMessageStatus = 'sending' | 'sent' | 'failed';
+/**
+ * Optimistic-UI lifecycle of a message before/after server confirmation.
+ *
+ * WhatsApp-style tick mapping (see ChatThreadScreen bubble renderer):
+ *   'queued'  → clock icon   — saved locally, no network yet (offline outbox)
+ *   'sending' → clock icon   — in-flight request, device is online
+ *   'sent'    → single check — server accepted it
+ *   'read'    → double check (tinted) — peer has read it
+ *   'failed'  → red outline + retry — a real (non-connectivity) rejection
+ */
+export type ChatMessageStatus = 'queued' | 'sending' | 'sent' | 'read' | 'failed';
 
 export type ChatMessage = {
   id: string;
@@ -114,6 +123,10 @@ export type ChatMessage = {
   authorId: string;
   authorName?: string | null;
   authorAvatarUrl?: string | null;
+  /** Omitted = a Community feed ad (unchanged). 'display' = a broker's Display post. */
+  kind?: 'community' | 'display';
+  /** Only set when kind is 'display'. */
+  marlaSize?: number;
 } | null;
   /**
    * WhatsApp-style "Reply Privately": a frozen snapshot of the community
@@ -190,4 +203,55 @@ export type ChatGroupAdRef = {
   imageUrl: string;
   advertiserName?: string;
   advertiserAvatar?: string | null;
+};
+
+/* ─────── Display (Profile → Display) ─────── */
+
+export type DisplayPostStatus = 'pending' | 'active' | 'sold' | 'expired' | 'rejected';
+
+export type DisplayPost = {
+  id: string;
+  userId: string;
+  images: string[];
+  /** The one required spec — plot/house size in Marla. */
+  marlaSize: number;
+  city?: string | null;
+  area?: string | null;
+  description?: string | null;
+  /** Optional specs left as free key→value — bedrooms, bathrooms, kitchen, carporch, tvLounge, etc. */
+  extraFields: Record<string, string>;
+  durationHours: number;
+  price: number;
+  status: DisplayPostStatus;
+  expiresAt?: string | null;
+  remainingSeconds?: number | null;
+  soldAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  authorName: string;
+  authorAvatarUrl?: string | null;
+  /** The broker's phone number from their profile — null if they never set one. */
+  authorPhone?: string | null;
+};
+
+export type DisplayProfile = {
+  userId: string;
+  coverImageUrl: string | null;
+};
+
+export type DisplayPostConfig = {
+  pricePerHourPkr: number;
+  minImages: number;
+  maxImages: number;
+};
+
+/** One "who's talking" broker card in the Community search results grid. */
+export type DisplayBrokerCard = {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  coverImageUrl: string | null;
+  estateName: string | null;
+  matchingPost: DisplayPost;
+  totalMatches: number;
 };

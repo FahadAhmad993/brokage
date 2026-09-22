@@ -41,6 +41,16 @@ export class UserEntity {
   @Column({ type: 'boolean', default: false })
   isAdmin!: boolean;
 
+  /**
+   * Must be true before login is allowed to issue a token. Defaults to
+   * `true` at the DATABASE level (via the migration) so every account that
+   * existed before this feature shipped keeps working unchanged; new
+   * registrations explicitly set this to `false` in application code and
+   * only flip it once the signup OTP is verified.
+   */
+  @Column({ type: 'boolean', default: true })
+  isEmailVerified!: boolean;
+
   /** Set by an admin. Blocked users can't log in and existing tokens are
    *  rejected on the next request (checked in `JwtStrategy`). */
   @Column({ type: 'boolean', default: false })

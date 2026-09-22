@@ -15,7 +15,9 @@ export class SettingsService {
 
   /** Get the single settings row, creating it with defaults if it's ever missing. */
   async getSettings(): Promise<AppSettingEntity> {
-    let row = await this.settingsRepository.findOne({ where: { key: SETTINGS_KEY } });
+    let row = await this.settingsRepository.findOne({
+      where: { key: SETTINGS_KEY },
+    });
     if (!row) {
       row = await this.settingsRepository.save(
         this.settingsRepository.create({ key: SETTINGS_KEY }),
@@ -27,7 +29,11 @@ export class SettingsService {
   async updateSettings(dto: UpdateAppSettingsDto): Promise<AppSettingEntity> {
     const row = await this.getSettings();
 
-    if (dto.pricePerHourPkr !== undefined) row.pricePerHourPkr = dto.pricePerHourPkr;
+    if (dto.pricePerHourPkr !== undefined)
+      row.pricePerHourPkr = dto.pricePerHourPkr;
+    if (dto.displayPricePerHourPkr !== undefined) {
+      row.displayPricePerHourPkr = dto.displayPricePerHourPkr;
+    }
     if (dto.minImages !== undefined) row.minImages = dto.minImages;
     if (dto.maxImages !== undefined) row.maxImages = dto.maxImages;
     if (dto.cityRequired !== undefined) row.cityRequired = dto.cityRequired;
@@ -74,6 +80,18 @@ export class SettingsService {
       cityRequired: s.cityRequired,
       areaRequired: s.areaRequired,
       customFields: s.customFields,
+    };
+  }
+
+  /** Public shape the mobile app needs to build the Display "Add Post" form / price preview. */
+  async getPublicDisplayConfig() {
+    const s = await this.getSettings();
+    return {
+      pricePerHourPkr: Number(s.displayPricePerHourPkr),
+      // Fixed at the product spec (6–7 photos per Display post) rather
+      // than admin-configurable like the Community feed's image bounds.
+      minImages: 1,
+      maxImages: 7,
     };
   }
 }

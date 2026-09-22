@@ -5,12 +5,22 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, IsNull, LessThan, MoreThan, Not, Repository, SelectQueryBuilder } from 'typeorm';
+import {
+  DataSource,
+  In,
+  IsNull,
+  LessThan,
+  MoreThan,
+  Not,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { ChatThreadEntity } from './entities/chat-thread.entity';
 import { ChatParticipantEntity } from './entities/chat-participant.entity';
 import { ChatMessageEntity } from './entities/chat-message.entity';
 import { ListMessageQueryDto } from './dto/list-message-query.dto';
 import { ListThreadQueryDto } from './dto/list-thread-query.dto';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { CreateThreadDto } from './dto/create-thread.dto';
 import { PropertyEntity } from '../properties/entities/property.entity';
 import { UserEntity } from '../users/entities/user.entity';
@@ -74,7 +84,8 @@ function sanitizeReplyToCommunityMessage(
   return {
     messageId: messageId.trim(),
     threadId: threadId.trim(),
-    threadTitle: typeof threadTitle === 'string' ? threadTitle.slice(0, 200) : '',
+    threadTitle:
+      typeof threadTitle === 'string' ? threadTitle.slice(0, 200) : '',
     body: typeof body === 'string' ? body.slice(0, 500) : '',
     imageUrl:
       typeof raw.imageUrl === 'string' && raw.imageUrl.trim()
@@ -119,7 +130,7 @@ export type ChatMessageDto = {
   locationContext?: ChatLocationRefDto;
   imageUrl?: string | null;
 
-   communityPostContext?: {
+  communityPostContext?: {
     id: string;
     title: string;
     description: string;
@@ -128,6 +139,8 @@ export type ChatMessageDto = {
     authorId: string;
     authorName?: string | null;
     authorAvatarUrl?: string | null;
+    kind?: 'community' | 'display';
+    marlaSize?: number;
   } | null;
 
   /** WhatsApp-style "Reply Privately" quote of the community message this
@@ -207,7 +220,10 @@ export class ChatsService {
       return this.threadRepository.save(legacy);
     }
     return this.threadRepository.save(
-      this.threadRepository.create({ type: 'group', title: COMMON_THREAD_TITLE }),
+      this.threadRepository.create({
+        type: 'group',
+        title: COMMON_THREAD_TITLE,
+      }),
     );
   }
 
@@ -256,7 +272,9 @@ export class ChatsService {
       .where('p."threadId" IN (:...ids)', { ids: threads.map((t) => t.id) })
       .groupBy('p."threadId"')
       .getRawMany<{ threadId: string; count: string }>();
-    const countByThread = new Map(counts.map((c) => [c.threadId, Number(c.count)]));
+    const countByThread = new Map(
+      counts.map((c) => [c.threadId, Number(c.count)]),
+    );
     return threads.map((t) => ({
       id: t.id,
       title: t.title,
@@ -284,7 +302,9 @@ export class ChatsService {
    *  Nothing is actually removed yet, so every message/member/ad reference
    *  comes back exactly as it was if restored in time. */
   async deleteCommunity(id: string, reason?: string) {
-    const thread = await this.threadRepository.findOne({ where: { id, type: 'group' } });
+    const thread = await this.threadRepository.findOne({
+      where: { id, type: 'group' },
+    });
     if (!thread) {
       throw new NotFoundException('Community not found');
     }
@@ -296,17 +316,28 @@ export class ChatsService {
     thread.restoreExpiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     thread.deletedReason = reason?.trim() || null;
     await this.threadRepository.save(thread);
-    return { success: true, id: thread.id, restoreExpiresAt: thread.restoreExpiresAt };
+    return {
+      success: true,
+      id: thread.id,
+      restoreExpiresAt: thread.restoreExpiresAt,
+    };
   }
 
   /** Admin restores a soft-deleted community while still inside its 7-day window. */
   async restoreCommunity(id: string) {
-    const thread = await this.threadRepository.findOne({ where: { id, type: 'group' } });
+    const thread = await this.threadRepository.findOne({
+      where: { id, type: 'group' },
+    });
     if (!thread || !thread.deletedAt) {
       throw new NotFoundException('Deleted community not found');
     }
-    if (thread.restoreExpiresAt && thread.restoreExpiresAt.getTime() < Date.now()) {
-      throw new ForbiddenException('This community is past its 7-day restore window');
+    if (
+      thread.restoreExpiresAt &&
+      thread.restoreExpiresAt.getTime() < Date.now()
+    ) {
+      throw new ForbiddenException(
+        'This community is past its 7-day restore window',
+      );
     }
     thread.deletedAt = null;
     thread.restoreExpiresAt = null;
@@ -347,7 +378,10 @@ export class ChatsService {
     if (users.length > 0) {
       await this.participantRepository.save(
         users.map((u) =>
-          this.participantRepository.create({ threadId: thread.id, userId: u.id }),
+          this.participantRepository.create({
+            threadId: thread.id,
+            userId: u.id,
+          }),
         ),
       );
     }
@@ -544,10 +578,7 @@ export class ChatsService {
     if (dto.type === 'direct' && dto.peerUserId) {
       // UGC safety: a blocked relationship (either direction) cannot open a DM.
       if (
-        await this.moderationService.isBlockedEitherWay(
-          userId,
-          dto.peerUserId,
-        )
+        await this.moderationService.isBlockedEitherWay(userId, dto.peerUserId)
       ) {
         throw new ForbiddenException(
           'You cannot start a conversation with this user',
@@ -581,9 +612,7 @@ export class ChatsService {
         title: dto.title,
         relatedPropertyId: dto.relatedPropertyId,
         relatedListingSnapshot:
-      dto.type === 'direct'
-        ? null
-        : dto.relatedListingSnapshot ?? null,
+          dto.type === 'direct' ? null : (dto.relatedListingSnapshot ?? null),
       }),
     );
     const participants = [userId];
@@ -625,16 +654,16 @@ export class ChatsService {
     clientId?: string,
     locationContext?: ChatLocationRefDto,
     imageUrl?: string,
-     communityPostContext?: {
-    id: string;
-    title: string;
-    description: string;
-    city: string;
-    images: string[];
-    authorId: string;
-    authorName?: string | null;
-    authorAvatarUrl?: string | null;
-  },
+    communityPostContext?: {
+      id: string;
+      title: string;
+      description: string;
+      city: string;
+      images: string[];
+      authorId: string;
+      authorName?: string | null;
+      authorAvatarUrl?: string | null;
+    },
     replyToCommunityMessage?: ReplyToCommunityMessageDto,
   ): Promise<ChatMessageDto> {
     await this.assertMembership(userId, threadId);
@@ -662,9 +691,9 @@ export class ChatsService {
     const cleanClientId = clientId?.trim() || null;
     const cleanLocation = sanitizeLocationContext(locationContext);
     const cleanImageUrl =
-  typeof imageUrl === 'string' && imageUrl.trim()
-    ? imageUrl.trim().slice(0, 2048)
-    : null;
+      typeof imageUrl === 'string' && imageUrl.trim()
+        ? imageUrl.trim().slice(0, 2048)
+        : null;
     const cleanReplyToCommunityMessage = sanitizeReplyToCommunityMessage(
       replyToCommunityMessage,
     );
@@ -684,18 +713,18 @@ export class ChatsService {
           return existing.id;
         }
       }
-     const created = await manager.save(
-  manager.create(ChatMessageEntity, {
-    threadId,
-    authorId: userId,
-    body: cleanBody,
-    clientId: cleanClientId,
-    locationContext: cleanLocation,
-    imageUrl: cleanImageUrl,
-    communityPostContext: communityPostContext ?? null,
-    replyToCommunityMessage: cleanReplyToCommunityMessage,
-  }),
-);
+      const created = await manager.save(
+        manager.create(ChatMessageEntity, {
+          threadId,
+          authorId: userId,
+          body: cleanBody,
+          clientId: cleanClientId,
+          locationContext: cleanLocation,
+          imageUrl: cleanImageUrl,
+          communityPostContext: communityPostContext ?? null,
+          replyToCommunityMessage: cleanReplyToCommunityMessage,
+        }),
+      );
 
       // Sender just sent a message — they've implicitly read it.
       await manager.update(
@@ -912,11 +941,10 @@ export class ChatsService {
             label: message.locationContext.label ?? null,
           }
         : undefined,
-imageUrl: message.imageUrl ?? null,
-communityPostContext: message.communityPostContext ?? null,
-replyToCommunityMessage: message.replyToCommunityMessage ?? null,
-isDeletedForEveryone: false,
-
+      imageUrl: message.imageUrl ?? null,
+      communityPostContext: message.communityPostContext ?? null,
+      replyToCommunityMessage: message.replyToCommunityMessage ?? null,
+      isDeletedForEveryone: false,
     };
   }
 
@@ -924,7 +952,10 @@ isDeletedForEveryone: false,
   async clearThreadForUser(userId: string, threadId: string) {
     await this.assertMembership(userId, threadId);
     const clearedAt = new Date();
-    await this.participantRepository.update({ threadId, userId }, { clearedAt });
+    await this.participantRepository.update(
+      { threadId, userId },
+      { clearedAt },
+    );
     return { success: true, clearedAt };
   }
 
@@ -977,7 +1008,9 @@ isDeletedForEveryone: false,
       throw new NotFoundException('Message not found');
     }
     if (message.authorId !== userId) {
-      throw new ForbiddenException('Only the sender can delete this for everyone');
+      throw new ForbiddenException(
+        'Only the sender can delete this for everyone',
+      );
     }
     await this.messageRepository.update(
       { id: messageId },
@@ -992,6 +1025,117 @@ isDeletedForEveryone: false,
       },
     );
     return { success: true, threadId: message.threadId };
+  }
+
+  /**
+   * Admin oversight: list every direct (1-to-1) thread platform-wide with
+   * both participants' identities and a last-message preview — this is
+   * what lets an admin see "who is talking to whom" without needing either
+   * user's own membership/perspective (unlike `listThreads`, which is
+   * scoped to one user's inbox). Group/community threads are excluded
+   * here; there's no "who's it between" for those, and they're already
+   * visible via the Communities admin page.
+   */
+  async adminListDirectThreads(query: PaginationQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+
+    const qb = this.threadRepository
+      .createQueryBuilder('thread')
+      .where('thread.type = :type', { type: 'direct' })
+      .leftJoinAndSelect('thread.participants', 'participants')
+      .leftJoinAndSelect('participants.user', 'participantUser')
+      .orderBy('thread.updatedAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    // Optional search: match either participant's name or email, so an
+    // admin can jump straight to a specific user's conversations.
+    if (query.search) {
+      qb.andWhere(
+        `EXISTS (
+          SELECT 1 FROM chat_participants cp
+          INNER JOIN users u ON u.id = cp."userId"
+          WHERE cp."threadId" = thread.id
+            AND (u."displayName" ILIKE :search OR u.email ILIKE :search)
+        )`,
+        { search: `%${query.search}%` },
+      );
+    }
+
+    const [threads, total] = await qb.getManyAndCount();
+    if (threads.length === 0) {
+      return { items: [], pagination: { page, limit, total, hasNext: false } };
+    }
+
+    const threadIds = threads.map((t) => t.id);
+    const lastMessages = await this.findLastMessagesForThreads(threadIds);
+    const lastMessageByThreadId = new Map(
+      lastMessages.map((m) => [m.threadId, m]),
+    );
+    const messageCounts = await this.messageRepository
+      .createQueryBuilder('m')
+      .select('m."threadId"', 'threadId')
+      .addSelect('COUNT(*)', 'count')
+      .where('m."threadId" IN (:...threadIds)', { threadIds })
+      .groupBy('m."threadId"')
+      .getRawMany<{ threadId: string; count: string }>();
+    const countByThreadId = new Map(
+      messageCounts.map((r) => [r.threadId, Number(r.count)]),
+    );
+
+    return {
+      items: threads.map((thread) => {
+        const last = lastMessageByThreadId.get(thread.id);
+        return {
+          id: thread.id,
+          participants: (thread.participants ?? []).map((p) => ({
+            id: p.user?.id,
+            displayName: p.user?.displayName ?? 'Deleted user',
+            email: p.user?.email ?? null,
+            avatarUrl: p.user?.avatarUrl ?? null,
+            isBlocked: p.user?.isBlocked ?? false,
+          })),
+          lastMessage: last
+            ? {
+                body: last.isDeletedForEveryone ? '' : last.body,
+                imageUrl: last.isDeletedForEveryone ? null : last.imageUrl,
+                createdAt: last.createdAt,
+                authorId: last.authorId,
+              }
+            : null,
+          messageCount: countByThreadId.get(thread.id) ?? 0,
+          createdAt: thread.createdAt,
+          updatedAt: thread.updatedAt,
+        };
+      }),
+      pagination: { page, limit, total, hasNext: page * limit < total },
+    };
+  }
+
+  /**
+   * Admin oversight: raw, unfiltered message history for any thread. Unlike
+   * `listMessages`, this ignores per-user `clearedAt`/block filtering —
+   * admins need to see the actual full conversation as it happened for
+   * moderation/dispute review, not any one participant's edited view.
+   */
+  async adminListThreadMessages(threadId: string, query: PaginationQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 50;
+
+    const [messagesDesc, total] = await this.messageRepository.findAndCount({
+      where: { threadId },
+      relations: { author: true },
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    const chronological = [...messagesDesc].reverse();
+
+    return {
+      items: chronological.map((message) => this.toMessageDto(message)),
+      pagination: { page, limit, total, hasNext: page * limit < total },
+    };
   }
 
   /**
@@ -1055,20 +1199,7 @@ isDeletedForEveryone: false,
   }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
 //comment data 1
-
 
 // import {
 //   BadRequestException,

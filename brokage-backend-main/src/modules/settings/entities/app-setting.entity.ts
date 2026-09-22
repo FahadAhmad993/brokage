@@ -28,6 +28,14 @@ export class AppSettingEntity {
   @Column({ type: 'numeric', precision: 10, scale: 4, default: 2.0833 })
   pricePerHourPkr!: number;
 
+  /**
+   * PKR charged per hour a Display post runs — separate rate from the
+   * Community feed's `pricePerHourPkr`, since Display is a distinct paid
+   * product from the Community ad feed, priced independently.
+   */
+  @Column({ type: 'numeric', precision: 10, scale: 4, default: 2.0833 })
+  displayPricePerHourPkr!: number;
+
   @Column({ type: 'int', default: 2 })
   minImages!: number;
 

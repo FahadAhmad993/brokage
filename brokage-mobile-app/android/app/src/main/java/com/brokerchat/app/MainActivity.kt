@@ -1,4 +1,4 @@
-package com.brokage
+package com.brokerchat.app
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

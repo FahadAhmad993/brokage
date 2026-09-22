@@ -8,6 +8,7 @@ import { spacing } from '../../theme/spacing';
 import { layout } from '../../theme/layout';
 import { iconSize, iconStroke } from '../../theme/icons';
 import { useForcedLogoutStore } from '../../stores/forcedLogoutStore';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 
 /**
  * Shown instead of the normal login screen right after an admin blocks or
@@ -17,6 +18,7 @@ import { useForcedLogoutStore } from '../../stores/forcedLogoutStore';
  * disabled server-side, so logging back in will be rejected too).
  */
 export function AccountDisabledScreen() {
+  const styles = useThemedStyles(buildStyles);
   const reason = useForcedLogoutStore(s => s.reason);
   const clear = useForcedLogoutStore(s => s.clear);
 
@@ -42,7 +44,7 @@ export function AccountDisabledScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   content: {
     flex: 1,

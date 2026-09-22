@@ -1,6 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
-   IsArray,
+  IsArray,
   IsLatitude,
   IsLongitude,
   IsObject,
@@ -71,16 +71,38 @@ export class CommunityPostContextDto {
   @IsString()
   @MaxLength(2048)
   authorAvatarUrl?: string;
+  /**
+   * Which board this attachment came from — omitted/undefined means the
+   * original Community feed ad (existing behavior, unchanged). 'display'
+   * marks it as a broker's Display post instead, so the chat UI shows
+   * "Marla" instead of a city line and routes "tap to view" to that
+   * broker's Display page rather than Community post details.
+   */
+  @ApiPropertyOptional({ enum: ['community', 'display'] })
+  @IsOptional()
+  @IsString()
+  kind?: 'community' | 'display';
+
+  @ApiPropertyOptional({
+    example: 5,
+    description: 'Only set when kind is "display" — plot/house size in Marla.',
+  })
+  @IsOptional()
+  marlaSize?: number;
 }
 
-
-
 export class ReplyToCommunityMessageDto {
-  @ApiProperty({ example: '2f4b7c...', description: 'id of the original community message' })
+  @ApiProperty({
+    example: '2f4b7c...',
+    description: 'id of the original community message',
+  })
   @IsUUID()
   messageId!: string;
 
-  @ApiProperty({ example: '2f4b7c...', description: 'id of the community thread the original message came from' })
+  @ApiProperty({
+    example: '2f4b7c...',
+    description: 'id of the community thread the original message came from',
+  })
   @IsUUID()
   threadId!: string;
 
@@ -162,35 +184,32 @@ export class SendMessageDto {
   locationContext?: LocationContextDto;
 
   @ApiPropertyOptional({
-  example: 'https://res.cloudinary.com/example/image/upload/chat/image.jpg',
-  description: 'Optional image URL attached to the message.',
-})
-@IsOptional()
-@IsString()
-@MaxLength(2048)
-imageUrl?: string;
+    example: 'https://res.cloudinary.com/example/image/upload/chat/image.jpg',
+    description: 'Optional image URL attached to the message.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  imageUrl?: string;
 
+  @ApiPropertyOptional({
+    type: () => CommunityPostContextDto,
+    description: 'Community Add attached to this chat message.',
+  })
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => CommunityPostContextDto)
+  communityPostContext?: CommunityPostContextDto;
 
-@ApiPropertyOptional({
-  type: () => CommunityPostContextDto,
-  description: 'Community Add attached to this chat message.',
-})
-@IsOptional()
-@IsObject()
-@ValidateNested()
-@Type(() => CommunityPostContextDto)
-communityPostContext?: CommunityPostContextDto;
-
-
-@ApiPropertyOptional({
-  type: () => ReplyToCommunityMessageDto,
-  description:
-    'WhatsApp-style "Reply Privately" quote of the community message this private message replies to. NOT the message body — the composer stays empty and this renders as its own preview.',
-})
-@IsOptional()
-@IsObject()
-@ValidateNested()
-@Type(() => ReplyToCommunityMessageDto)
-replyToCommunityMessage?: ReplyToCommunityMessageDto;
-
+  @ApiPropertyOptional({
+    type: () => ReplyToCommunityMessageDto,
+    description:
+      'WhatsApp-style "Reply Privately" quote of the community message this private message replies to. NOT the message body — the composer stays empty and this renders as its own preview.',
+  })
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => ReplyToCommunityMessageDto)
+  replyToCommunityMessage?: ReplyToCommunityMessageDto;
 }

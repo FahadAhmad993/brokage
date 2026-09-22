@@ -5,7 +5,8 @@ import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { navigateToChatsThread } from '../../navigation/crossTabNavigate';
+import { navigateToChatsThread, navigateToUserDisplayFromSearch } from '../../navigation/crossTabNavigate';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronRight,
@@ -29,17 +30,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { displayThreadUnread, sameId } from '../../chat/threadUnread';
-import { deleteChatThread, errorMessage, fetchThreads } from '../../api/client';
+import { deleteChatThread, errorMessage, fetchThreads, searchDisplayBrokers } from '../../api/client';
 import { ActionMenu, type ActionMenuItem } from '../../components/ActionMenu';
 import { useAppAlert, useAppToast } from '../../components/appAlert';
 import type { ChatsStackParamList, MainTabParamList } from '../../navigation/types';
-import type { ChatThread } from '../../types/models';
+import type { ChatThread, DisplayBrokerCard } from '../../types/models';
 import { useActiveChatThreadStore } from '../../stores/activeChatThreadStore';
 import { useAuthStore } from '../../stores/authStore';
 import { colors } from '../../theme/colors';
 import { iconSize, iconStroke } from '../../theme/icons';
 import { layout } from '../../theme/layout';
-import { screenStyles } from '../../theme/screenStyles';
+import { getScreenStyles } from '../../theme/screenStyles';
 import { shadows } from '../../theme/shadows';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -51,6 +52,7 @@ type Nav = CompositeNavigationProp<
 >;
 
 function ThreadSeparator() {
+  const chatListStyles = useThemedStyles(buildChatListStyles);
   return <View style={chatListStyles.separator} />;
 }
 
@@ -64,7 +66,118 @@ function formatUnreadBadge(n: number): string {
   return String(Math.floor(n));
 }
 
+/**
+ * Inline broker-search results, shown directly under the search bar the
+ * instant there's a query — no extra tap/navigation required. Previously
+ * this was a small "Search brokers for…" text link that was easy to miss
+ * entirely; showing live results (or a clear "no matches" / "still
+ * searching" state) here removes any doubt about whether search is
+ * actually doing anything.
+ */
+function BrokerSearchPanel({
+  query,
+  onSelect,
+}: {
+  query: string;
+  onSelect: (broker: DisplayBrokerCard) => void;
+}) {
+  const chatListStyles = useThemedStyles(buildChatListStyles);
+  const trimmed = query.trim();
+  const brokersQuery = useQuery({
+    queryKey: ['display', 'search', trimmed],
+    queryFn: () => searchDisplayBrokers(trimmed),
+    enabled: trimmed.length > 0,
+  });
+
+  if (!trimmed) {
+    return null;
+  }
+
+  return (
+    <View style={chatListStyles.brokerPanel}>
+      <Text style={chatListStyles.brokerPanelLabel}>
+        Your search: "{trimmed}" — Brokers
+      </Text>
+
+      {brokersQuery.isLoading ? (
+        <ActivityIndicator
+          color={colors.accentBrown}
+          style={{ marginVertical: spacing.sm }}
+        />
+      ) : null}
+
+      {brokersQuery.isError ? (
+        <Text style={chatListStyles.brokerPanelError}>
+          {errorMessage(brokersQuery.error, 'Could not search right now.')}
+        </Text>
+      ) : null}
+
+      {brokersQuery.data && brokersQuery.data.length === 0 ? (
+        <Text style={chatListStyles.brokerPanelEmpty}>
+          No brokers have a live Display post matching "{trimmed}" yet.
+        </Text>
+      ) : null}
+
+      <View style={chatListStyles.brokerGrid}>
+        {brokersQuery.data?.map(broker => (
+          <Pressable
+            key={broker.userId}
+            onPress={() => onSelect(broker)}
+            style={({ pressed }) => [
+              chatListStyles.brokerCard,
+              pressed && chatListStyles.pressed,
+            ]}>
+            {/* Cover banner — the same photo they set on their Display */}
+            <View style={chatListStyles.brokerCardCover}>
+              {broker.coverImageUrl ? (
+                <Image
+                  source={{ uri: broker.coverImageUrl }}
+                  style={chatListStyles.brokerCardCoverImg}
+                />
+              ) : null}
+            </View>
+
+            {/* Profile picture, overlapping the cover like a LinkedIn card */}
+            <View style={chatListStyles.brokerCardAvatarWrap}>
+              {broker.avatarUrl ? (
+                <Image source={{ uri: broker.avatarUrl }} style={chatListStyles.brokerCardAvatar} />
+              ) : (
+                <View style={[chatListStyles.brokerCardAvatar, chatListStyles.brokerAvatarFallback]}>
+                  <Text style={chatListStyles.brokerAvatarText}>
+                    {broker.displayName.slice(0, 1).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <View style={chatListStyles.brokerCardBody}>
+              <Text style={chatListStyles.brokerName} numberOfLines={1}>
+                {broker.displayName}
+              </Text>
+              <Text style={chatListStyles.brokerDetail} numberOfLines={1}>
+                {broker.matchingPost.marlaSize} Marla Plot
+              </Text>
+              {broker.matchingPost.city || broker.matchingPost.area ? (
+                <Text style={chatListStyles.brokerCity} numberOfLines={1}>
+                  {[broker.matchingPost.city, broker.matchingPost.area]
+                    .filter(Boolean)
+                    .join(', ')}
+                </Text>
+              ) : null}
+
+              <View style={chatListStyles.brokerViewBtn}>
+                <Text style={chatListStyles.brokerViewBtnText}>View</Text>
+              </View>
+            </View>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function ThreadRowAvatar({ thread }: { thread: ChatThread }) {
+  const chatListStyles = useThemedStyles(buildChatListStyles);
   const [imgFailed, setImgFailed] = React.useState(false);
   if (thread.type === 'group') {
     return (
@@ -135,6 +248,7 @@ const ChatListRow = React.memo(function ChatListRow({
   const unreadBadge = formatUnreadBadge(unreadCount);
   const hasUnread = Boolean(unreadBadge);
   const unreadSuffix = unreadBadge ? `, ${unreadBadge} unread` : '';
+  const chatListStyles = useThemedStyles(buildChatListStyles);
   return (
     <View style={[chatListStyles.row, hasUnread && chatListStyles.rowUnread]}>
       <View style={chatListStyles.avatar}>
@@ -206,6 +320,7 @@ const ChatListRow = React.memo(function ChatListRow({
 export function ChatsListScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProp<ChatsStackParamList, 'ChatList'>>();
+  const chatListStyles = useThemedStyles(buildChatListStyles);
   const tabBarHeight = useBottomTabBarHeight();
   const user = useAuthStore(s => s.user);
   const queryClient = useQueryClient();
@@ -390,7 +505,7 @@ export function ChatsListScreen() {
       <View style={chatListStyles.header}>
         <View style={chatListStyles.headerTopRow}>
           <View style={chatListStyles.headerTopText}>
-            <Text style={screenStyles.sectionOverline}>Inbox</Text>
+            <Text style={getScreenStyles().sectionOverline}>Inbox</Text>
             <Text style={chatListStyles.title}>{screenTitle}</Text>
           </View>
           {isGroupMode ? (
@@ -437,6 +552,20 @@ export function ChatsListScreen() {
         ) : (
           <Text style={chatListStyles.sub}>{screenSubtitle}</Text>
         )}
+        {/* "5 marla plot required" etc. — shows matching brokers live,
+            right here, alongside (not instead of) the group-chat name
+            filter above, which keeps working on the same query. */}
+        {searchOpen ? (
+          <BrokerSearchPanel
+            query={searchQuery}
+            onSelect={broker =>
+              navigateToUserDisplayFromSearch(navigation, {
+                userId: broker.userId,
+                displayName: broker.displayName,
+              })
+            }
+          />
+        ) : null}
       </View>
 
       <View style={chatListStyles.body}>
@@ -533,7 +662,7 @@ export function ChatsListScreen() {
   );
 }
 
-const chatListStyles = StyleSheet.create({
+const buildChatListStyles = () => StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   /** Fills space below header so Android never shows a transparent strip above the tab bar. */
   body: {
@@ -575,6 +704,113 @@ const chatListStyles = StyleSheet.create({
     borderColor: 'rgba(201,196,215,0.18)',
     paddingHorizontal: spacing.md,
     minHeight: layout.buttonHeightMin,
+  },
+  brokerPanel: {
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: layout.radius.md,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  brokerPanelLabel: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: spacing.sm,
+  },
+  brokerPanelError: {
+    ...typography.bodySmall,
+    color: colors.danger,
+  },
+  brokerPanelEmpty: {
+    ...typography.bodySmall,
+    color: colors.textMuted,
+  },
+  // LinkedIn-card-style grid: two per row, cover photo with the profile
+  // picture overlapping it, name + spec + city below.
+  brokerGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  brokerCard: {
+    width: '47%',
+    borderRadius: layout.radius.lg,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingBottom: spacing.sm,
+  },
+  brokerCardCover: {
+    width: '100%',
+    height: 56,
+    backgroundColor: colors.primarySoft,
+  },
+  brokerCardCoverImg: {
+    width: '100%',
+    height: '100%',
+  },
+  brokerCardAvatarWrap: {
+    marginTop: -24,
+    marginLeft: spacing.sm,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 3,
+    borderColor: colors.surface,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+  },
+  brokerCardAvatar: {
+    width: '100%',
+    height: '100%',
+  },
+  brokerAvatarFallback: {
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brokerAvatarText: {
+    ...typography.body,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  brokerCardBody: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs,
+    gap: 2,
+  },
+  brokerName: {
+    ...typography.bodySmall,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  brokerDetail: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  brokerCity: {
+    ...typography.caption,
+    color: colors.textMuted,
+  },
+  brokerViewBtn: {
+    marginTop: spacing.xs,
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: layout.radius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.primary,
+  },
+  brokerViewBtnText: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.primary,
   },
   searchInput: {
     flex: 1,

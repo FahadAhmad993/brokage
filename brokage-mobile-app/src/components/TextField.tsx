@@ -10,6 +10,7 @@ import { colors } from '../theme/colors';
 import { layout } from '../theme/layout';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
+import { useThemedStyles } from '../hooks/useThemedStyles';
 
 type Props = TextInputProps & {
   label: string;
@@ -17,6 +18,7 @@ type Props = TextInputProps & {
 };
 
 export function TextField({ label, error, style, ...rest }: Props) {
+  const styles = useThemedStyles(buildStyles);
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>{label}</Text>
@@ -30,7 +32,7 @@ export function TextField({ label, error, style, ...rest }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   wrap: { gap: spacing.sm, width: '100%' },
   label: {
     ...typography.bodySmall,

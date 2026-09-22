@@ -7,6 +7,7 @@ import { iconSize, iconStroke } from '../../theme/icons';
 import { layout } from '../../theme/layout';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 
 type Props = {
   listing: ChatListingRef;
@@ -20,6 +21,7 @@ export function ChatListingAttachment({
   onPress,
   compact,
 }: Props) {
+  const styles = useThemedStyles(buildStyles);
   const [imageFailed, setImageFailed] = React.useState(false);
   React.useEffect(() => {
     setImageFailed(false);
@@ -90,7 +92,7 @@ export function ChatListingAttachment({
   );
 }
 
-const styles = StyleSheet.create({
+const buildStyles = () => StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     alignItems: 'center',
