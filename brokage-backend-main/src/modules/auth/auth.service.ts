@@ -89,6 +89,15 @@ export class AuthService {
       });
     }
 
+    // Admin accounts skip OTP entirely and log straight in — they're a
+    // small, manually-promoted, trusted set (not public signups), and the
+    // admin web panel has no "enter the code" screen at all, so requiring
+    // one here would just lock every admin out. Everyone else (the
+    // mobile app's brokers/buyers) still goes through the OTP step below.
+    if (user.isAdmin) {
+      return this.buildAuthResponse(user);
+    }
+
     // An account that never finished its signup verification gets a
     // signup code here instead of a login code — same inbox flow, correct
     // wording, and it also flips `isEmailVerified` once completed.
