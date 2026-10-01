@@ -126,6 +126,7 @@ import {
   flattenMessagePages,
   mapMessagesInInfinitePages,
   markMessageClientStatusInPages,
+  preserveOrphanedMessages,
   seedOrMergeOwnMessage,
   type MessagesPageResult,
 } from '../../chat/messagePages';
@@ -135,6 +136,13 @@ import {
   isConnectivityError,
   removeOutboxMessage,
 } from '../../chat/offlineOutbox';
+import {
+  getCachedLocalDeleteState,
+  isLocallyExcluded,
+  loadLocalDeleteState,
+  recordLocalClear,
+  recordLocalDelete,
+} from '../../chat/localChatArchive';
 
 
 type Route = RouteProp<MainStackParamList, 'ChatThread'>;
@@ -923,6 +931,13 @@ export function ChatThreadScreen() {
           text: 'Clear',
           style: 'destructive',
           onPress: () => {
+            // Record this BEFORE emptying the cache below, so the merge in
+            // `messagesQuery`'s queryFn (which reads this synchronously)
+            // never folds these just-cleared messages back in as "orphans"
+            // on the very next fetch.
+            if (user?.id) {
+              void recordLocalClear(threadId, user.id);
+            }
             // Optimistic: empty the timeline immediately.
             queryClient.setQueryData<InfiniteData<MessagesPageResult> | undefined>(
               ['messages', threadId, user?.id],
@@ -1035,10 +1050,62 @@ export function ChatThreadScreen() {
     [paramListing, threadsQuery.data?.relatedListing],
   );
 
+  /**
+   * Blocked-peer state, read inside `messagesQuery`'s `queryFn` below via a
+   * ref (it's declared later in this component, after `peerBlocked`'s own
+   * `useState`) so the orphan-preserve merge never resurrects a message
+   * that's merely filtered because the user blocked its author — that's a
+   * dynamic server-side filter, not a delete, and shouldn't be treated like
+   * one. See the `useEffect` near `peerBlocked` that keeps this in sync.
+   */
+  const peerBlockedExclusionRef = useRef<{ peerUserId?: string; blocked: boolean }>({
+    blocked: false,
+  });
+
+  // Warm the "did I delete this myself" cache for this thread before any
+  // page fetch runs, so the very first fetch already excludes it correctly.
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+    void loadLocalDeleteState(threadId, user.id);
+  }, [threadId, user?.id]);
+
   const messagesQuery = useInfiniteQuery({
     queryKey: ['messages', threadId, user?.id],
-    queryFn: ({ pageParam }) =>
-      fetchMessagesPage(threadId, user!, pageParam as number, MESSAGE_PAGE_SIZE),
+    queryFn: async ({ pageParam }) => {
+      const serverPage = await fetchMessagesPage(
+        threadId,
+        user!,
+        pageParam as number,
+        MESSAGE_PAGE_SIZE,
+      );
+      // Keep showing anything this device already loaded even once the
+      // server stops returning it (admin "clear community/inbox" and the
+      // 20-day retention sweep both hard-delete rows from Supabase) — chat
+      // history should live on the user's phone until THEY delete it, not
+      // until an admin/cron job does. Messages the user deleted themselves
+      // ("Delete for me" / "Clear chat") or that belong to someone they've
+      // blocked are excluded so this never undoes those intentional,
+      // user-driven removals.
+      const prevData = queryClient.getQueryData<
+        InfiniteData<MessagesPageResult> | undefined
+      >(['messages', threadId, user?.id]);
+      const previouslyKnown = flattenMessagePages(prevData);
+      if (previouslyKnown.length === 0 || !user?.id) {
+        return serverPage;
+      }
+      const localDeleteState = getCachedLocalDeleteState(threadId, user.id);
+      const { peerUserId, blocked } = peerBlockedExclusionRef.current;
+      const items = preserveOrphanedMessages(
+        serverPage.items,
+        previouslyKnown,
+        message =>
+          isLocallyExcluded(localDeleteState, message) ||
+          (blocked && !!peerUserId && message.authorId === peerUserId),
+      );
+      return { ...serverPage, items };
+    },
     initialPageParam: 1,
     getNextPageParam: lastPage =>
       lastPage.pagination.hasNext ? lastPage.pagination.page + 1 : undefined,
@@ -1360,6 +1427,15 @@ const send = useMutation({
   /** `null` = not checked yet, `true`/`false` once known. Direct threads only. */
   const [peerBlocked, setPeerBlocked] = React.useState<boolean | null>(null);
   const [blockActionPending, setBlockActionPending] = React.useState(false);
+
+  // Keep `peerBlockedExclusionRef` (read inside `messagesQuery`'s queryFn,
+  // declared earlier in this component) in sync with this state.
+  useEffect(() => {
+    peerBlockedExclusionRef.current = {
+      peerUserId: peerUserIdForProfile,
+      blocked: peerBlocked === true,
+    };
+  }, [peerUserIdForProfile, peerBlocked]);
 
   React.useEffect(() => {
     if (!peerUserIdForProfile) {
@@ -2085,6 +2161,11 @@ const removeMessageFromOwnView = useCallback(
 
 const onDeleteForMe = useCallback(
   (item: ChatMessage) => {
+    // Record this first so the orphan-preserve merge in `messagesQuery`'s
+    // queryFn never folds it back in once the server stops returning it.
+    if (user?.id) {
+      void recordLocalDelete(threadId, user.id, item.id);
+    }
     // Optimistic: hide immediately, roll back only if the request fails.
     removeMessageFromOwnView(item.id);
     deleteMessage(item.id, 'me').catch(err => {

@@ -114,6 +114,36 @@ export function markMessageClientStatusInPages(
   );
 }
 
+/**
+ * Folds any previously-seen message that the server no longer returns back
+ * into this page's result — unless `isExcluded` says the user deleted it
+ * themselves. This is what makes chat history survive an admin "clear
+ * community/inbox" action or the 20-day retention sweep (both hard-delete
+ * rows server-side): the device keeps showing whatever it already loaded
+ * until the user clears/deletes it on their own end.
+ *
+ * Safe to call on every page fetch — `flattenMessagePages` dedupes by id
+ * across all pages, so a message folded into more than one page's `items`
+ * still renders exactly once.
+ */
+export function preserveOrphanedMessages(
+  serverItems: ChatMessage[],
+  previouslyKnown: ChatMessage[],
+  isExcluded: (message: ChatMessage) => boolean,
+): ChatMessage[] {
+  if (previouslyKnown.length === 0) {
+    return serverItems;
+  }
+  const serverIds = new Set(serverItems.map(m => m.id));
+  const orphaned = previouslyKnown.filter(
+    m => !serverIds.has(m.id) && !isExcluded(m),
+  );
+  if (orphaned.length === 0) {
+    return serverItems;
+  }
+  return [...serverItems, ...orphaned];
+}
+
 /** Drop messages matching `predicate` from every cached page — used for
  *  "delete for me" (remove one) and "clear all messages" (remove every). */
 export function filterMessagesInInfinitePages(

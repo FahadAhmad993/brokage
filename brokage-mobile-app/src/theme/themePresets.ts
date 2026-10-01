@@ -9,14 +9,19 @@
  * the same "remount to reset state" trick `App.tsx` already uses for its
  * error-boundary recovery key, just applied to theme switching.
  *
- * Four themes, per the "black / white / two more" request:
+ * Five themes:
  *   - dark      → the original editorial-black look (unchanged default)
  *   - light     → clean white/paper theme
  *   - midnight  → deep navy-blue dark variant (distinct from plain black)
  *   - sand      → warm cream/sepia light variant (distinct from plain white)
+ *   - gray      → true neutral graphite/slate — no warm or blue undertone,
+ *                 unlike `dark` (warm black) or `midnight` (blue-black).
+ *                 Uses the full tonal range background → surface →
+ *                 surfaceMuted → surfaceElevated so depth reads from
+ *                 layering/contrast, not from a single flat gray fill.
  */
 
-export type ThemeName = 'dark' | 'light' | 'midnight' | 'sand';
+export type ThemeName = 'dark' | 'light' | 'midnight' | 'sand' | 'gray';
 
 export type ThemePalette = {
   background: string;
@@ -293,11 +298,68 @@ const SAND: ThemePalette = {
   isDark: false,
 };
 
+const GRAY: ThemePalette = {
+  background: '#121212',
+  surface: '#1B1B1B',
+  surfaceMuted: '#232323',
+  surfaceElevated: '#2A2A2A',
+  surfaceHighlight: 'rgba(255, 255, 255, 0.06)',
+
+  border: 'rgba(255, 255, 255, 0.08)',
+  borderStrong: 'rgba(255, 255, 255, 0.18)',
+  divider: 'rgba(255, 255, 255, 0.12)',
+
+  primary: '#F2F2F2',
+  primaryMid: '#D6D6D6',
+  primarySoft: '#232323',
+  brandWordmark: '#B0B0B0',
+  brandGradient: ['#6E6E6E', '#161616'],
+
+  washPrimary: 'rgba(242, 242, 242, 0.04)',
+  ringPrimary: 'rgba(242, 242, 242, 0.10)',
+  ringPrimaryMid: 'rgba(242, 242, 242, 0.14)',
+  ringPrimaryStroke: 'rgba(242, 242, 242, 0.22)',
+  ringPrimaryFocus: 'rgba(242, 242, 242, 0.36)',
+  primaryBadgeOverlay: 'rgba(18, 18, 18, 0.92)',
+
+  textPrimary: '#F2F2F2',
+  textSecondary: '#B3B3B3',
+  textMuted: '#868686',
+  textTabInactive: '#565656',
+  onPrimary: '#121212',
+  onBrandGradient: '#FFFFFF',
+
+  // A muted copper accent (not pure gray) so tips/badges/CTAs still pop
+  // against an otherwise fully neutral palette — same brand-accent family
+  // every other theme uses, just toned down to sit quietly on graphite.
+  accentBrown: '#BE8A57',
+  washAccent: 'rgba(190, 138, 87, 0.10)',
+  tipBg: 'rgba(190, 138, 87, 0.14)',
+  tipBorder: 'rgba(190, 138, 87, 0.40)',
+  tipText: '#DBB088',
+  tipTitle: '#EFD3B6',
+
+  overlayHeader: 'rgba(18, 18, 18, 0.88)',
+  overlayOnPhoto: 'rgba(18, 18, 18, 0.72)',
+  shadow: 'rgba(0, 0, 0, 0.5)',
+
+  success: '#34D399',
+  danger: '#F87171',
+
+  topBar: '#161616',
+  topBarBorder: 'rgba(255, 255, 255, 0.08)',
+  bottomBar: '#1E1E1E',
+  bottomBarBorder: 'rgba(255, 255, 255, 0.16)',
+
+  isDark: true,
+};
+
 export const themePresets: Record<ThemeName, ThemePalette> = {
   dark: DARK,
   light: LIGHT,
   midnight: MIDNIGHT,
   sand: SAND,
+  gray: GRAY,
 };
 
 export const themeMeta: Record<ThemeName, { label: string; swatch: string }> = {
@@ -305,4 +367,5 @@ export const themeMeta: Record<ThemeName, { label: string; swatch: string }> = {
   light: { label: 'Light (White)', swatch: LIGHT.background },
   midnight: { label: 'Midnight Blue', swatch: MIDNIGHT.background },
   sand: { label: 'Sand (Warm Light)', swatch: SAND.background },
+  gray: { label: 'Graphite (Gray)', swatch: GRAY.background },
 };

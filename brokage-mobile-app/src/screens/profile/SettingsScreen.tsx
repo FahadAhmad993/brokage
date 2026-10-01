@@ -39,7 +39,7 @@ import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { themeMeta, type ThemeName } from '../../theme/themePresets';
 
-const THEME_ORDER: ThemeName[] = ['dark', 'light', 'midnight', 'sand'];
+const THEME_ORDER: ThemeName[] = ['dark', 'light', 'midnight', 'sand', 'gray'];
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'Settings'>;
 
