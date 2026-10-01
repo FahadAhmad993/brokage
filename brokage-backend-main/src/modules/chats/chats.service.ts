@@ -811,6 +811,49 @@ export class ChatsService {
     return this.toThreadSummary(thread, userId);
   }
 
+  /**
+   * Batched version of `getThreadSummaryForUser` for the socket fan-out
+   * path: loads the thread (with participants/users/property) and the
+   * latest message ONCE, then builds every participant's summary in memory.
+   *
+   * Previously `ChatsGateway.fanOutThreadUpdate` called
+   * `getThreadSummaryForUser` once PER PARTICIPANT — each call re-running
+   * the same heavy multi-join query. For an N-member thread that's N
+   * redundant DB round trips on every single message, fired concurrently,
+   * which was the main cause of chat slowing down as community threads
+   * (every user is auto-joined to the global thread at signup) grew past a
+   * few hundred members: one message could queue hundreds of queries
+   * against the connection pool, starving every other chat sharing it.
+   * This does the same work with exactly 2 queries regardless of N.
+   */
+  async getThreadSummariesForFanOut(
+    threadId: string,
+  ): Promise<Map<string, ReturnType<ChatsService['buildThreadSummary']>>> {
+    const thread = await this.threadRepository.findOneOrFail({
+      where: { id: threadId },
+      relations: {
+        participants: { user: true },
+        relatedProperty: { images: true },
+      },
+    });
+    const [lastMessage] = await this.findLastMessagesForThreads([threadId]);
+
+    const summaries = new Map<
+      string,
+      ReturnType<ChatsService['buildThreadSummary']>
+    >();
+    for (const participant of thread.participants ?? []) {
+      summaries.set(
+        participant.userId,
+        this.buildThreadSummary(thread, participant.userId, {
+          lastMessage: lastMessage ?? undefined,
+          unreadCount: Math.max(0, participant.unreadCount ?? 0),
+        }),
+      );
+    }
+    return summaries;
+  }
+
   async listParticipantUserIds(threadId: string) {
     const participants = await this.participantRepository.find({
       where: { threadId },

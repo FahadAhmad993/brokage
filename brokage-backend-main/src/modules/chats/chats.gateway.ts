@@ -419,18 +419,19 @@ export class ChatsGateway
    * participant's `user:<id>` room so inboxes re-sort and unread badges
    * update without a refetch.
    */
+  /**
+   * Was: one `getThreadSummaryForUser` DB round trip PER PARTICIPANT (N
+   * heavy joined queries fired concurrently for an N-member thread, on
+   * every single message — see `getThreadSummariesForFanOut` for why this
+   * was the main cause of chat slowness). Now: one batched call that does
+   * the same work in 2 queries total, then a plain in-memory loop to emit.
+   */
   private async fanOutThreadUpdate(threadId: string) {
-    const participantIds =
-      await this.chatsService.listParticipantUserIds(threadId);
-    await Promise.all(
-      participantIds.map(async (participantId) => {
-        const thread = await this.chatsService.getThreadSummaryForUser(
-          threadId,
-          participantId,
-        );
-        this.server.to(`user:${participantId}`).emit('thread:update', thread);
-      }),
-    );
+    const summaries =
+      await this.chatsService.getThreadSummariesForFanOut(threadId);
+    for (const [participantId, summary] of summaries) {
+      this.server.to(`user:${participantId}`).emit('thread:update', summary);
+    }
   }
 
   private trackPresence(user: JwtPayload, mode: 'online' | 'offline') {
