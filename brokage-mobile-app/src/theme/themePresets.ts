@@ -14,7 +14,7 @@
  *   - light     → clean white/paper theme
  *   - midnight  → deep navy-blue dark variant (distinct from plain black)
  *   - sand      → warm cream/sepia light variant (distinct from plain white)
- *   - gray      → true neutral graphite/slate — no warm or blue undertone,
+ *   - gray      → light sky-tinted blue-grey (not dark),
  *                 unlike `dark` (warm black) or `midnight` (blue-black).
  *                 Uses the full tonal range background → surface →
  *                 surfaceMuted → surfaceElevated so depth reads from
@@ -299,59 +299,58 @@ const SAND: ThemePalette = {
 };
 
 const GRAY: ThemePalette = {
-  background: '#121212',
-  surface: '#1B1B1B',
-  surfaceMuted: '#232323',
-  surfaceElevated: '#2A2A2A',
-  surfaceHighlight: 'rgba(255, 255, 255, 0.06)',
+  // Sky Grey: a clearly light/mid blue-grey (slate with a soft sky tint),
+  // visibly different from the near-black Dark theme.
+  background: '#D5DEE8',
+  surface: '#E6EDF4',
+  surfaceMuted: '#C9D5E1',
+  surfaceElevated: '#F3F7FB',
+  surfaceHighlight: 'rgba(60, 100, 140, 0.10)',
 
-  border: 'rgba(255, 255, 255, 0.08)',
-  borderStrong: 'rgba(255, 255, 255, 0.18)',
-  divider: 'rgba(255, 255, 255, 0.12)',
+  border: 'rgba(40, 70, 100, 0.16)',
+  borderStrong: 'rgba(40, 70, 100, 0.32)',
+  divider: 'rgba(40, 70, 100, 0.20)',
 
-  primary: '#F2F2F2',
-  primaryMid: '#D6D6D6',
-  primarySoft: '#232323',
-  brandWordmark: '#B0B0B0',
-  brandGradient: ['#6E6E6E', '#161616'],
+  primary: '#3E6A93',
+  primaryMid: '#5B86AD',
+  primarySoft: '#C3D3E3',
+  brandWordmark: '#3E6A93',
+  brandGradient: ['#6C97BD', '#2F5577'],
 
-  washPrimary: 'rgba(242, 242, 242, 0.04)',
-  ringPrimary: 'rgba(242, 242, 242, 0.10)',
-  ringPrimaryMid: 'rgba(242, 242, 242, 0.14)',
-  ringPrimaryStroke: 'rgba(242, 242, 242, 0.22)',
-  ringPrimaryFocus: 'rgba(242, 242, 242, 0.36)',
-  primaryBadgeOverlay: 'rgba(18, 18, 18, 0.92)',
+  washPrimary: 'rgba(62, 106, 147, 0.08)',
+  ringPrimary: 'rgba(62, 106, 147, 0.14)',
+  ringPrimaryMid: 'rgba(62, 106, 147, 0.20)',
+  ringPrimaryStroke: 'rgba(62, 106, 147, 0.32)',
+  ringPrimaryFocus: 'rgba(62, 106, 147, 0.50)',
+  primaryBadgeOverlay: 'rgba(230, 237, 244, 0.94)',
 
-  textPrimary: '#F2F2F2',
-  textSecondary: '#B3B3B3',
-  textMuted: '#868686',
-  textTabInactive: '#565656',
-  onPrimary: '#121212',
+  textPrimary: '#1D2A38',
+  textSecondary: '#46586B',
+  textMuted: '#6C7D8F',
+  textTabInactive: '#7F8FA0',
+  onPrimary: '#FFFFFF',
   onBrandGradient: '#FFFFFF',
 
-  // A muted copper accent (not pure gray) so tips/badges/CTAs still pop
-  // against an otherwise fully neutral palette — same brand-accent family
-  // every other theme uses, just toned down to sit quietly on graphite.
-  accentBrown: '#BE8A57',
-  washAccent: 'rgba(190, 138, 87, 0.10)',
-  tipBg: 'rgba(190, 138, 87, 0.14)',
-  tipBorder: 'rgba(190, 138, 87, 0.40)',
-  tipText: '#DBB088',
-  tipTitle: '#EFD3B6',
+  accentBrown: '#A8691F',
+  washAccent: 'rgba(168, 105, 31, 0.10)',
+  tipBg: 'rgba(168, 105, 31, 0.12)',
+  tipBorder: 'rgba(168, 105, 31, 0.38)',
+  tipText: '#7A4A12',
+  tipTitle: '#5E3708',
 
-  overlayHeader: 'rgba(18, 18, 18, 0.88)',
-  overlayOnPhoto: 'rgba(18, 18, 18, 0.72)',
-  shadow: 'rgba(0, 0, 0, 0.5)',
+  overlayHeader: 'rgba(213, 222, 232, 0.92)',
+  overlayOnPhoto: 'rgba(29, 42, 56, 0.62)',
+  shadow: 'rgba(30, 50, 80, 0.22)',
 
-  success: '#34D399',
-  danger: '#F87171',
+  success: '#1E9E6A',
+  danger: '#D64545',
 
-  topBar: '#161616',
-  topBarBorder: 'rgba(255, 255, 255, 0.08)',
-  bottomBar: '#1E1E1E',
-  bottomBarBorder: 'rgba(255, 255, 255, 0.16)',
+  topBar: '#C3D0DE',
+  topBarBorder: 'rgba(40, 70, 100, 0.20)',
+  bottomBar: '#C3D0DE',
+  bottomBarBorder: 'rgba(40, 70, 100, 0.22)',
 
-  isDark: true,
+  isDark: false,
 };
 
 export const themePresets: Record<ThemeName, ThemePalette> = {
@@ -367,5 +366,5 @@ export const themeMeta: Record<ThemeName, { label: string; swatch: string }> = {
   light: { label: 'Light (White)', swatch: LIGHT.background },
   midnight: { label: 'Midnight Blue', swatch: MIDNIGHT.background },
   sand: { label: 'Sand (Warm Light)', swatch: SAND.background },
-  gray: { label: 'Graphite (Gray)', swatch: GRAY.background },
+  gray: { label: 'Sky Grey', swatch: GRAY.background },
 };
