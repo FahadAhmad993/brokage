@@ -5,13 +5,14 @@ import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { navigateToChatsThread, navigateToUserDisplayFromSearch } from '../../navigation/crossTabNavigate';
+import { navigateToChatsThread, navigateToContacts, navigateToUserDisplayFromSearch } from '../../navigation/crossTabNavigate';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronRight,
   MessageCircle,
   Search,
+  UserPlus,
   Users,
   X,
 } from 'lucide-react-native';
@@ -508,6 +509,18 @@ export function ChatsListScreen() {
             <Text style={getScreenStyles().sectionOverline}>Inbox</Text>
             <Text style={chatListStyles.title}>{screenTitle}</Text>
           </View>
+          <Pressable
+            onPress={() => navigateToContacts(navigation)}
+            hitSlop={12}
+            style={({ pressed }) => [
+              chatListStyles.searchIconBtn,
+              chatListStyles.headerBtnGap,
+              pressed && chatListStyles.pressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Contacts and invite">
+            <UserPlus color={colors.primary} size={iconSize.md} strokeWidth={iconStroke} />
+          </Pressable>
           {isGroupMode ? (
             <Pressable
               onPress={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
@@ -685,6 +698,7 @@ const buildChatListStyles = () => StyleSheet.create({
     gap: spacing.sm,
   },
   headerTopText: { flex: 1, gap: spacing.xs },
+  headerBtnGap: { marginRight: spacing.xs },
   searchIconBtn: {
     width: 40,
     height: 40,

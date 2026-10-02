@@ -102,6 +102,8 @@ export type MainStackParamList = {
   EditProfile: undefined;
   ChangePassword: undefined;
   BlockedUsers: undefined;
+  Contacts: undefined;
+  AddContact: undefined;
   UserProfile: {
     userId: string;
     displayName?: string;

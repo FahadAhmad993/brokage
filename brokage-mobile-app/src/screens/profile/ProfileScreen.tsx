@@ -1,11 +1,12 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 // LayoutList re-enabled with the "Your listings" row.
-import { ChevronRight, LayoutGrid, Settings } from 'lucide-react-native';
+import { ChevronRight, LayoutGrid, Settings, Share2, Users } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ScreenScroll } from '../../components/ScreenScroll';
 import {
+  navigateToContacts,
   navigateToEditProfile,
   navigateToHomeStackScreen,
   navigateToMyDisplay,
@@ -13,6 +14,7 @@ import {
 } from '../../navigation/crossTabNavigate';
 import type { ProfileStackParamList } from '../../navigation/types';
 import { useAuthStore } from '../../stores/authStore';
+import { shareInvite } from '../../lib/invite';
 import { initialsFromDisplay } from '../../utils/userDisplay';
 import { colors } from '../../theme/colors';
 import { iconSize, iconStroke } from '../../theme/icons';
@@ -134,6 +136,40 @@ export function ProfileScreen() {
           />
         </Pressable>
         */}
+
+        <Pressable
+          style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}
+          onPress={() => navigateToContacts(navigation)}
+          accessibilityRole="button"
+          accessibilityLabel="Contacts">
+          <View style={styles.menuLeft}>
+            <View style={styles.menuIconWrap}>
+              <Users color={colors.primary} size={iconSize.md} strokeWidth={iconStroke} />
+            </View>
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuLabel}>Contacts</Text>
+              <Text style={styles.menuHint}>Add people by email & start a chat</Text>
+            </View>
+          </View>
+          <ChevronRight color={colors.textMuted} size={iconSize.lg} strokeWidth={iconStroke} />
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}
+          onPress={() => void shareInvite(user?.displayName)}
+          accessibilityRole="button"
+          accessibilityLabel="Invite friends">
+          <View style={styles.menuLeft}>
+            <View style={styles.menuIconWrap}>
+              <Share2 color={colors.primary} size={iconSize.md} strokeWidth={iconStroke} />
+            </View>
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuLabel}>Invite friends</Text>
+              <Text style={styles.menuHint}>Share Brokage on WhatsApp, SMS & more</Text>
+            </View>
+          </View>
+          <ChevronRight color={colors.textMuted} size={iconSize.lg} strokeWidth={iconStroke} />
+        </Pressable>
 
         <Pressable
           style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]}

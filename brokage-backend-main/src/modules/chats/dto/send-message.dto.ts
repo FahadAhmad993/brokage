@@ -212,4 +212,12 @@ export class SendMessageDto {
   @ValidateNested()
   @Type(() => ReplyToCommunityMessageDto)
   replyToCommunityMessage?: ReplyToCommunityMessageDto;
+
+  @ApiPropertyOptional({
+    description:
+      'Id of a message in the SAME thread this one replies to (WhatsApp-style reply). The server builds the quote from the real message.',
+  })
+  @IsOptional()
+  @IsUUID()
+  replyToMessageId?: string;
 }

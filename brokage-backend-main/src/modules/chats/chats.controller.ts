@@ -102,6 +102,7 @@ export class ChatsController {
       dto.imageUrl,
       dto.communityPostContext,
       dto.replyToCommunityMessage,
+      dto.replyToMessageId,
     );
     // Mirror the gateway's broadcast so REST-fallback sends still reach
     // every connected device in real time.

@@ -93,6 +93,7 @@ import {
 } from '../../api/client';
 import { ChatCommunityPostAttachment } from '../../components/chat/ChatCommunityPostAttachment';
 import { PostPhotoBranding } from '../../components/post/PostPhotoOverlay';
+import { SwipeToReply } from '../../components/chat/SwipeToReply';
 import { PostImageViewerModal } from '../../components/post/PostImageViewerModal';
 import { LocationPickerModal } from '../../components/chat/LocationPickerModal';
 import { ReportSheetModal } from '../../components/chat/ReportSheetModal';
@@ -1033,11 +1034,19 @@ export function ChatThreadScreen() {
     } else if (threadChanged) {
       setPendingReply(null);
     }
+    if (threadChanged) {
+      setReplyingTo(null);
+    }
   }, [route.params, threadId]);
 
   const cancelPendingReply = React.useCallback(() => {
     setPendingReply(null);
   }, []);
+
+  /** In-thread WhatsApp-style reply target (swipe right / long-press → Reply). */
+  const [replyingTo, setReplyingTo] = React.useState<ChatMessage | null>(null);
+  /** Message briefly highlighted after tapping a quote that jumps to it. */
+  const [highlightedMessageId, setHighlightedMessageId] = React.useState<string | null>(null);
 
   const [typingName, setTypingName] = React.useState<string | null>(null);
   const [peerOnline, setPeerOnline] = React.useState<boolean | null>(null);
@@ -1256,12 +1265,14 @@ const send = useMutation({
     locationContext,
     imageUrl,
     replyToCommunityMessage,
+    replyTo,
   }: {
     body: string;
     clientId: string;
     locationContext?: ChatMessage['locationContext'];
     imageUrl?: string;
     replyToCommunityMessage?: ChatMessage['replyToCommunityMessage'];
+    replyTo?: ChatMessage['replyTo'];
   }) => {
     // Check connectivity *before* touching the network. Previously, sending
     // while offline meant waiting out a full socket ack timeout (up to
@@ -1281,10 +1292,11 @@ const send = useMutation({
       imageUrl,
       undefined,
       replyToCommunityMessage,
+      replyTo?.messageId,
     );
   },
 
-  onMutate: ({ body, clientId, locationContext, imageUrl, replyToCommunityMessage }) => {
+  onMutate: ({ body, clientId, locationContext, imageUrl, replyToCommunityMessage, replyTo }) => {
     setSendError(null);
 
     if (user) {
@@ -1299,6 +1311,7 @@ const send = useMutation({
         locationContext,
         imageUrl,
         replyToCommunityMessage,
+        replyToMessageId: replyTo?.messageId,
         queuedAt: new Date().toISOString(),
       });
 
@@ -1319,6 +1332,7 @@ const send = useMutation({
         ...(locationContext ? { locationContext } : {}),
         ...(imageUrl ? { imageUrl } : {}),
         ...(replyToCommunityMessage ? { replyToCommunityMessage } : {}),
+        ...(replyTo ? { replyTo } : {}),
       });
 
       queryClient.setQueryData<ChatThread[] | undefined>(
@@ -1336,6 +1350,7 @@ const send = useMutation({
     // feel gated on the network round trip.
     setDraft('');
     setPendingReply(null);
+    setReplyingTo(null);
     nearNewestRef.current = true;
     pinToLatest(true);
 
@@ -1423,7 +1438,7 @@ const send = useMutation({
       // somehow never had one (legacy data, mock-mode rows).
       const clientId = failed.clientId ?? newClientMessageId();
       markMessageStatus(clientId, 'sending');
-      send.mutate({ body: failed.body, clientId });
+      send.mutate({ body: failed.body, clientId, replyTo: failed.replyTo ?? undefined });
     },
     [markMessageStatus, send, user],
   );
@@ -2244,6 +2259,53 @@ const handleMessageLongPress = useCallback(
   [],
 );
 
+/** Frozen copy of the message being replied to (the server rebuilds the
+ *  real quote from `messageId`; this just powers the instant optimistic bubble). */
+const buildReplySnapshot = (m: ChatMessage): NonNullable<ChatMessage['replyTo']> => ({
+  messageId: m.id,
+  body: (m.body ?? '').slice(0, 300),
+  imageUrl: m.imageUrl ?? null,
+  authorId: m.authorId,
+  authorName: m.authorName ?? null,
+});
+
+const startReply = useCallback((m: ChatMessage) => {
+  // Optimistic/unsent bubbles have no server id yet, so they can't be quoted.
+  if (m.isDeletedForEveryone || m.authorId === 'system' || m.id.startsWith('optimistic-')) {
+    return;
+  }
+  setReplyingTo(m);
+  messageInputRef.current?.focus();
+}, []);
+
+/** Tap on a quote → scroll to the original message (loading older pages if
+ *  it isn't on screen yet) and flash it briefly. */
+const jumpToMessage = useCallback(
+  async (messageId: string) => {
+    let arr = listData;
+    let idx = arr.findIndex(m => m.id === messageId);
+    let hasNext = messagesQuery.hasNextPage;
+    let guard = 0;
+    while (idx < 0 && hasNext && guard < 25) {
+      guard += 1;
+      const res = await messagesQuery.fetchNextPage();
+      hasNext = res.hasNextPage ?? false;
+      arr = [...flattenMessagePages(res.data)].reverse();
+      idx = arr.findIndex(m => m.id === messageId);
+    }
+    if (idx < 0) {
+      Alert.alert('Message not found', 'The original message is no longer available.');
+      return;
+    }
+    setHighlightedMessageId(messageId);
+    setTimeout(() => setHighlightedMessageId(null), 1800);
+    setTimeout(() => {
+      listRef.current?.scrollToIndex({ index: idx, viewPosition: 0.5, animated: true });
+    }, 120);
+  },
+  [listData, messagesQuery],
+);
+
 const messageMenuItems: ActionMenuItem[] = React.useMemo(() => {
   const item = messageMenu?.item;
   if (!item) return [];
@@ -2251,6 +2313,10 @@ const messageMenuItems: ActionMenuItem[] = React.useMemo(() => {
   const hasText = item.body?.trim().length > 0;
 
   const items: ActionMenuItem[] = [];
+
+  if (!item.id.startsWith('optimistic-')) {
+    items.push({ label: 'Reply', onPress: () => startReply(item) });
+  }
 
   // Copy — text messages only, never for images.
   if (hasText && !item.imageUrl) {
@@ -2285,7 +2351,7 @@ const messageMenuItems: ActionMenuItem[] = React.useMemo(() => {
   }
 
   return items;
-}, [messageMenu, onDeleteForEveryone, onDeleteForMe, user?.id]);
+}, [messageMenu, onDeleteForEveryone, onDeleteForMe, startReply, user?.id]);
 
 /** "Clear all messages" — this user's view only; the other participant's
  *  history is untouched. Offered from the header's overflow menu. Declared
@@ -2371,6 +2437,38 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
         </Text>
       ) : (
         <>
+          {/* In-thread reply quote — tap jumps to the original message. */}
+          {item.replyTo ? (
+            <Pressable
+              onPress={() => void jumpToMessage(item.replyTo!.messageId)}
+              style={[styles.quoteBlock, mine && styles.quoteBlockMine]}
+              accessibilityRole="button"
+              accessibilityLabel="Go to the original message">
+              <View style={styles.quoteAccent} />
+              {item.replyTo.imageUrl ? (
+                <Image
+                  source={{ uri: item.replyTo.imageUrl }}
+                  style={styles.quoteThumb}
+                  resizeMode="cover"
+                />
+              ) : null}
+              <View style={styles.quoteTextWrap}>
+                <Text style={styles.quoteAuthor} numberOfLines={1}>
+                  {item.replyTo.authorId === user?.id
+                    ? 'You'
+                    : (item.replyTo.authorName ?? 'Member')}
+                </Text>
+                <Text style={styles.quoteBody} numberOfLines={2}>
+                  {item.replyTo.body?.trim()
+                    ? item.replyTo.body
+                    : item.replyTo.imageUrl
+                      ? 'Photo'
+                      : 'Message'}
+                </Text>
+              </View>
+            </Pressable>
+          ) : null}
+
           {/* Reply Privately quote — the community message this private
               reply is quoting. Read-only preview, never editable text. */}
           {item.replyToCommunityMessage ? (
@@ -2547,7 +2645,8 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
         // without this, a short reply ("Ok!") on a long quoted message
         // shrink-wraps the whole bubble down to "Ok!"'s width, squeezing
         // the quote into a tall, cramped, near-unreadable column.
-        item.replyToCommunityMessage ? styles.bubbleWrapWithQuote : null,
+        item.replyToCommunityMessage || item.replyTo ? styles.bubbleWrapWithQuote : null,
+        highlightedMessageId === item.id ? styles.bubbleWrapHighlight : null,
       ]}
     >
       {/* Group chat author — tap opens their profile (not a chat). */}
@@ -2591,11 +2690,15 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
       ) : null}
 
       {/* Message bubble — wrapped with a pulsing glow when flagged */}
-      {shouldHighlight ? (
-        <GlowingMessageWrap>{bubbleContent}</GlowingMessageWrap>
-      ) : (
-        bubbleContent
-      )}
+      <SwipeToReply
+        onReply={() => startReply(item)}
+        disabled={isDeleted || isSending || isQueued || item.id.startsWith('optimistic-')}>
+        {shouldHighlight ? (
+          <GlowingMessageWrap>{bubbleContent}</GlowingMessageWrap>
+        ) : (
+          bubbleContent
+        )}
+      </SwipeToReply>
     </View>
   );
 };
@@ -2693,6 +2796,21 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
           keyExtractor={m => m.clientId ?? m.id}
           extraData={`${listData.length}-${sendError ?? ''}`}
           renderItem={renderItem}
+          onScrollToIndexFailed={info => {
+            // Row heights vary, so the target may not be measured yet:
+            // jump near it first, then retry once it has rendered.
+            listRef.current?.scrollToOffset({
+              offset: info.averageItemLength * info.index,
+              animated: false,
+            });
+            setTimeout(() => {
+              listRef.current?.scrollToIndex({
+                index: info.index,
+                viewPosition: 0.5,
+                animated: true,
+              });
+            }, 300);
+          }}
         ListFooterComponent={
   messagesQuery.isFetchingNextPage ? (
     <View style={styles.historyLoading}>
@@ -2875,6 +2993,38 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
           <Text style={styles.sendErrorText} accessibilityLiveRegion="polite">
             {sendError}
           </Text>
+        ) : null}
+        {replyingTo ? (
+          <View style={styles.replyPreviewBar}>
+            <View style={styles.replyPreviewAccent} />
+            {replyingTo.imageUrl ? (
+              <Image
+                source={{ uri: replyingTo.imageUrl }}
+                style={styles.replyPreviewThumb}
+                resizeMode="cover"
+              />
+            ) : null}
+            <View style={styles.replyPreviewTextWrap}>
+              <Text style={styles.replyPreviewAuthor} numberOfLines={1}>
+                {replyingTo.authorId === user?.id ? 'You' : (replyingTo.authorName ?? 'Member')}
+              </Text>
+              <Text style={styles.replyPreviewBody} numberOfLines={2}>
+                {replyingTo.body?.trim()
+                  ? replyingTo.body
+                  : replyingTo.imageUrl
+                    ? 'Photo'
+                    : 'Message'}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setReplyingTo(null)}
+              hitSlop={layout.hitSlop}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel reply"
+              style={styles.replyPreviewCancel}>
+              <X color={colors.textMuted} size={iconSize.sm} strokeWidth={iconStroke} />
+            </Pressable>
+          </View>
         ) : null}
         {pendingReply ? (
           <View style={styles.replyPreviewBar}>
@@ -3071,6 +3221,7 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
                 body: trimmed,
                 clientId: newClientMessageId(),
                 ...(pendingReply ? { replyToCommunityMessage: pendingReply } : {}),
+                ...(replyingTo ? { replyTo: buildReplySnapshot(replyingTo) } : {}),
               });
               setPendingReply(null);
               flushTypingStop();
@@ -3708,6 +3859,11 @@ bubbleImage: {
   },
   replyPreviewCancel: {
     padding: spacing.xs,
+  },
+  /** Brief flash on the message a tapped quote jumped to. */
+  bubbleWrapHighlight: {
+    backgroundColor: 'rgba(255, 200, 0, 0.18)',
+    borderRadius: 14,
   },
   quoteBlock: {
     flexDirection: 'row',

@@ -120,3 +120,8 @@ export function navigateToSettings(
 ): void {
   navigation.dispatch(CommonActions.navigate({ name: 'Settings' }));
 }
+
+/** Personal contacts list / add-contact form (hoisted on MainStack like Settings). */
+export function navigateToContacts(navigation: NavigationProp<ParamListBase>): void {
+  navigation.dispatch(CommonActions.navigate({ name: 'Contacts' }));
+}

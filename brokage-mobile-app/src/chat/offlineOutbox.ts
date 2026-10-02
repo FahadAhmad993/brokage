@@ -31,6 +31,8 @@ export type OutboxMessage = {
   locationContext?: ChatMessage['locationContext'];
   imageUrl?: string;
   replyToCommunityMessage?: ChatMessage['replyToCommunityMessage'];
+  /** In-thread reply target (server rebuilds the quote from this id). */
+  replyToMessageId?: string;
   /** ISO timestamp captured at enqueue time — used as the optimistic bubble's `createdAt`. */
   queuedAt: string;
 };

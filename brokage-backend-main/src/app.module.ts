@@ -14,6 +14,8 @@ import { UsersModule } from './modules/users/users.module';
 import { PropertiesModule } from './modules/properties/properties.module';
 import { ChatsModule } from './modules/chats/chats.module';
 import { ModerationModule } from './modules/moderation/moderation.module';
+import { ContactsModule } from './modules/contacts/contacts.module';
+import { UserContactEntity } from './modules/contacts/entities/user-contact.entity';
 import { AppController } from './app.controller';
 import { UserEntity } from './modules/users/entities/user.entity';
 import { PropertyEntity } from './modules/properties/entities/property.entity';
@@ -114,6 +116,7 @@ import { OtpCodeEntity } from './modules/auth/entities/otp-code.entity';
           ChatParticipantEntity,
           ChatMessageEntity,
           UserBlockEntity,
+          UserContactEntity,
           ContentReportEntity,
           CommunityPostEntity,
           AppSettingEntity,
@@ -129,6 +132,7 @@ import { OtpCodeEntity } from './modules/auth/entities/otp-code.entity';
     PropertiesModule,
     ChatsModule,
     ModerationModule,
+    ContactsModule,
     CommunityPostsModule,
     DisplayModule,
     AdminModule,

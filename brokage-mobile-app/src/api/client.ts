@@ -10,6 +10,7 @@ import type {
   ChatMessage,
   ChatThread,
   ChatListingRef,
+  Contact,
   DisplayBrokerCard,
   DisplayPost,
   DisplayPostConfig,
@@ -706,6 +707,7 @@ export async function sendChatMessage(
   imageUrl?: string,
   communityPostContext?: ChatMessage['communityPostContext'],
   replyToCommunityMessage?: ChatMessage['replyToCommunityMessage'],
+  replyToMessageId?: string,
 ): Promise<ChatMessage> {
   if (API_MODE === 'live') {
     const socket = await connectChatSocket();
@@ -719,6 +721,7 @@ export async function sendChatMessage(
       imageUrl?: string;
       communityPostContext?: ChatMessage['communityPostContext'];
       replyToCommunityMessage?: ChatMessage['replyToCommunityMessage'];
+      replyToMessageId?: string;
     } = { threadId, body: trimmed, clientId };
 
     const restPayload: {
@@ -728,6 +731,7 @@ export async function sendChatMessage(
       imageUrl?: string;
       communityPostContext?: ChatMessage['communityPostContext'];
       replyToCommunityMessage?: ChatMessage['replyToCommunityMessage'];
+      replyToMessageId?: string;
     } = { body: trimmed, clientId };
 
     if (locationContext) {
@@ -746,6 +750,10 @@ restPayload.communityPostContext = communityPostContext;
 if (replyToCommunityMessage) {
   sendPayload.replyToCommunityMessage = replyToCommunityMessage;
   restPayload.replyToCommunityMessage = replyToCommunityMessage;
+}
+if (replyToMessageId) {
+  sendPayload.replyToMessageId = replyToMessageId;
+  restPayload.replyToMessageId = replyToMessageId;
 }
 
     if (socket && socket.connected) {
@@ -798,6 +806,7 @@ if (replyToCommunityMessage) {
   imageUrl?: string;
   communityPostContext?: ChatMessage['communityPostContext'];
   replyToCommunityMessage?: ChatMessage['replyToCommunityMessage'];
+  replyToMessageId?: string;
 } = {
    body: restPayload.body 
   };
@@ -814,6 +823,9 @@ if (communityPostContext) {
 }
 if (replyToCommunityMessage) {
   retryPayload.replyToCommunityMessage = replyToCommunityMessage;
+}
+if (replyToMessageId) {
+  retryPayload.replyToMessageId = replyToMessageId;
 }
         data = await apiRequest<ChatMessage>(
           `/chats/threads/${threadId}/messages`,
@@ -1034,6 +1046,37 @@ export async function fetchUserProfile(userId: string): Promise<PublicUserProfil
     };
   }
   return apiRequest<PublicUserProfile>(`/users/${userId}`);
+}
+
+// ---- Contacts (personal address book, keyed by account email) -----------
+
+export async function fetchContacts(): Promise<Contact[]> {
+  return apiRequest<Contact[]>('/contacts');
+}
+
+export async function addContact(data: {
+  email: string;
+  name?: string;
+  phone?: string;
+}): Promise<Contact> {
+  return apiRequest<Contact>('/contacts', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateContact(
+  id: string,
+  data: { name?: string; phone?: string },
+): Promise<Contact> {
+  return apiRequest<Contact>(`/contacts/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteContact(id: string): Promise<{ success: boolean }> {
+  return apiRequest(`/contacts/${id}`, { method: 'DELETE' });
 }
 
 // ---- Moderation: block + report --------------------------------------

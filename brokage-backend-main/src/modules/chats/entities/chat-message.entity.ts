@@ -103,6 +103,21 @@ export class ChatMessageEntity {
     authorAvatarUrl?: string | null;
   } | null;
 
+  /**
+   * WhatsApp-style in-thread reply: a frozen snapshot of the message (in the
+   * SAME thread) this message replies to. Built server-side from the real
+   * row — the client only sends the id — so a quote can never be forged.
+   * `messageId` is what the app scrolls to when the quote is tapped.
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  replyTo!: {
+    messageId: string;
+    body: string;
+    imageUrl?: string | null;
+    authorId: string;
+    authorName?: string | null;
+  } | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 

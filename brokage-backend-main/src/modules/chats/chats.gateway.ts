@@ -384,6 +384,7 @@ export class ChatsGateway
         authorName?: string | null;
         authorAvatarUrl?: string | null;
       };
+      replyToMessageId?: string;
     },
   ) {
     const { user } = readSocketData(client);
@@ -408,6 +409,9 @@ export class ChatsGateway
         readImageUrl(payload.imageUrl),
         payload.communityPostContext,
         payload.replyToCommunityMessage,
+        typeof payload.replyToMessageId === 'string'
+          ? payload.replyToMessageId
+          : undefined,
       );
     } catch (err) {
       throw this.toWsException(err);

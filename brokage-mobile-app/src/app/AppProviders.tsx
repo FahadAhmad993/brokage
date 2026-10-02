@@ -155,6 +155,7 @@ export function AppProviders() {
           item.imageUrl,
           undefined,
           item.replyToCommunityMessage,
+          item.replyToMessageId,
         ),
       {
         onSent: (item, message) => {

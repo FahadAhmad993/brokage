@@ -8,6 +8,7 @@ import { ChatThreadEntity } from '../modules/chats/entities/chat-thread.entity';
 import { ChatParticipantEntity } from '../modules/chats/entities/chat-participant.entity';
 import { ChatMessageEntity } from '../modules/chats/entities/chat-message.entity';
 import { UserBlockEntity } from '../modules/moderation/entities/user-block.entity';
+import { UserContactEntity } from '../modules/contacts/entities/user-contact.entity';
 import { ContentReportEntity } from '../modules/moderation/entities/content-report.entity';
 import { CommunityPostEntity } from '../modules/community-posts/entities/community-post.entity';
 import { AppSettingEntity } from '../modules/settings/entities/app-setting.entity';
@@ -32,6 +33,7 @@ export default new DataSource({
     ChatParticipantEntity,
     ChatMessageEntity,
     UserBlockEntity,
+    UserContactEntity,
     ContentReportEntity,
     CommunityPostEntity,
     AppSettingEntity,

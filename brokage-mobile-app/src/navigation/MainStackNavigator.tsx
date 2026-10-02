@@ -8,6 +8,8 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatThreadScreen } from '../screens/chat/ChatThreadScreen';
 import { BlockedUsersScreen } from '../screens/profile/BlockedUsersScreen';
+import { ContactsScreen } from '../screens/contacts/ContactsScreen';
+import { AddContactScreen } from '../screens/contacts/AddContactScreen';
 import { ChangePasswordScreen } from '../screens/profile/ChangePasswordScreen';
 import { EditProfileScreen } from '../screens/profile/EditProfileScreen';
 import { SettingsScreen } from '../screens/profile/SettingsScreen';
@@ -199,6 +201,16 @@ export function MainStackNavigator() {
       <Stack.Screen
         name="BlockedUsers"
         component={BlockedUsersScreen}
+        options={{ headerTitle: '' }}
+      />
+      <Stack.Screen
+        name="Contacts"
+        component={ContactsScreen}
+        options={{ headerTitle: '' }}
+      />
+      <Stack.Screen
+        name="AddContact"
+        component={AddContactScreen}
         options={{ headerTitle: '' }}
       />
       {/* "My Display" / viewing someone else's, and its "Add Post" form —

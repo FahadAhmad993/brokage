@@ -156,6 +156,15 @@ export type ChatMessageDto = {
     authorAvatarUrl?: string | null;
   } | null;
 
+  /** In-thread reply quote (tap → jump to the original). */
+  replyTo?: {
+    messageId: string;
+    body: string;
+    imageUrl?: string | null;
+    authorId: string;
+    authorName?: string | null;
+  } | null;
+
   isDeletedForEveryone?: boolean;
 };
 
@@ -665,6 +674,7 @@ export class ChatsService {
       authorAvatarUrl?: string | null;
     },
     replyToCommunityMessage?: ReplyToCommunityMessageDto,
+    replyToMessageId?: string,
   ): Promise<ChatMessageDto> {
     await this.assertMembership(userId, threadId);
     const cleanBody = typeof body === 'string' ? body.trim() : '';
@@ -698,6 +708,29 @@ export class ChatsService {
       replyToCommunityMessage,
     );
 
+    // In-thread reply: snapshot the quoted message from the DB (never from
+    // client input) and only if it really belongs to this thread.
+    let replyTo: ChatMessageEntity['replyTo'] = null;
+    if (replyToMessageId) {
+      const original = await this.messageRepository.findOne({
+        where: { id: replyToMessageId, threadId },
+        relations: { author: true },
+      });
+      if (original) {
+        replyTo = {
+          messageId: original.id,
+          body: original.isDeletedForEveryone
+            ? ''
+            : (original.body ?? '').slice(0, 300),
+          imageUrl: original.isDeletedForEveryone
+            ? null
+            : (original.imageUrl ?? null),
+          authorId: original.authorId,
+          authorName: original.author?.displayName ?? null,
+        };
+      }
+    }
+
     const messageId = await this.dataSource.transaction(async (manager) => {
       if (cleanClientId) {
         const existing = await manager.findOne(ChatMessageEntity, {
@@ -723,6 +756,7 @@ export class ChatsService {
           imageUrl: cleanImageUrl,
           communityPostContext: communityPostContext ?? null,
           replyToCommunityMessage: cleanReplyToCommunityMessage,
+          replyTo,
         }),
       );
 
@@ -961,6 +995,7 @@ export class ChatsService {
         imageUrl: null,
         communityPostContext: null,
         replyToCommunityMessage: message.replyToCommunityMessage ?? null,
+        replyTo: message.replyTo ?? null,
         isDeletedForEveryone: true,
       };
     }
@@ -987,6 +1022,7 @@ export class ChatsService {
       imageUrl: message.imageUrl ?? null,
       communityPostContext: message.communityPostContext ?? null,
       replyToCommunityMessage: message.replyToCommunityMessage ?? null,
+      replyTo: message.replyTo ?? null,
       isDeletedForEveryone: false,
     };
   }
@@ -1063,6 +1099,7 @@ export class ChatsService {
         locationContext: null,
         communityPostContext: null,
         replyToCommunityMessage: null,
+        replyTo: null,
         isDeletedForEveryone: true,
         deletedAt: new Date(),
       },

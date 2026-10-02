@@ -145,6 +145,15 @@ export type ChatMessage = {
     authorName?: string | null;
     authorAvatarUrl?: string | null;
   } | null;
+  /** In-thread WhatsApp-style reply: quote of a message in this same thread.
+   *  `messageId` is what the app scrolls to when the quote is tapped. */
+  replyTo?: {
+    messageId: string;
+    body: string;
+    imageUrl?: string | null;
+    authorId: string;
+    authorName?: string | null;
+  } | null;
   /** Author-only "delete for everyone" applied — body/image are already
    *  blanked by the server; bubbles render a "message deleted" placeholder. */
   isDeletedForEveryone?: boolean;
@@ -256,4 +265,18 @@ export type DisplayBrokerCard = {
   estateName: string | null;
   matchingPost: DisplayPost;
   totalMatches: number;
+};
+
+
+/** A person saved in my personal contact list (added by their account email). */
+export type Contact = {
+  id: string;
+  /** The contact's user id — what a direct chat is opened with. */
+  userId: string;
+  /** My label for them (defaults to their profile name). */
+  name: string;
+  displayName: string;
+  email: string;
+  phone?: string | null;
+  avatarUrl?: string | null;
 };
