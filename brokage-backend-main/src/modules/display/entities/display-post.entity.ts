@@ -85,6 +85,10 @@ export class DisplayPostEntity {
   @Column({ type: 'text', nullable: true })
   rejectionReason!: string | null;
 
+  /** Distinct users (other than the owner) who have opened this post. */
+  @Column({ type: 'int', default: 0 })
+  viewCount!: number;
+
   @CreateDateColumn()
   createdAt!: Date;
 

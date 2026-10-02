@@ -15,13 +15,17 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DisplayService } from './display.service';
 import { CreateDisplayPostDto } from './dto/create-display-post.dto';
 import { UpdateDisplayPostDto } from './dto/update-display-post.dto';
+import { ChatsGateway } from '../chats/chats.gateway';
 import type { AuthenticatedRequest } from '../../common/middleware/jwt-auth.middleware';
 
 @ApiTags('Display')
 @ApiBearerAuth('bearer')
 @Controller('display')
 export class DisplayController {
-  constructor(private readonly displayService: DisplayService) {}
+  constructor(
+    private readonly displayService: DisplayService,
+    private readonly chatsGateway: ChatsGateway,
+  ) {}
 
   // ---- Config / pricing -----------------------------------------------
 
@@ -128,6 +132,22 @@ export class DisplayController {
   @Get('user/:userId')
   async findForUser(@Param('userId', new ParseUUIDPipe()) userId: string) {
     return this.displayService.findForUser(userId);
+  }
+
+  @ApiOperation({
+    summary:
+      'Count the caller as a visitor of this post (once per user, owner excluded) and push the new count to everyone watching it.',
+  })
+  @Post(':id/view')
+  async recordView(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    const result = await this.displayService.recordView(req.user.sub, id);
+    if (result.changed) {
+      this.chatsGateway.broadcastDisplayViews(result.postId, result.viewCount);
+    }
+    return { postId: result.postId, viewCount: result.viewCount };
   }
 
   // ---- Single post (must come after the more specific routes above) -------

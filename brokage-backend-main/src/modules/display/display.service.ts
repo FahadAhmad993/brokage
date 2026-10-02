@@ -11,6 +11,7 @@ import { DisplayPostEntity } from './entities/display-post.entity';
 import { DisplayProfileEntity } from './entities/display-profile.entity';
 import { CreateDisplayPostDto } from './dto/create-display-post.dto';
 import { UpdateDisplayPostDto } from './dto/update-display-post.dto';
+import { DisplayPostViewEntity } from './entities/display-post-view.entity';
 import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
@@ -20,8 +21,47 @@ export class DisplayService {
     private readonly postRepository: Repository<DisplayPostEntity>,
     @InjectRepository(DisplayProfileEntity)
     private readonly profileRepository: Repository<DisplayProfileEntity>,
+    @InjectRepository(DisplayPostViewEntity)
+    private readonly viewRepository: Repository<DisplayPostViewEntity>,
     private readonly settingsService: SettingsService,
   ) {}
+
+  /**
+   * Record that `userId` opened post `postId`. Idempotent per (post, user)
+   * and ignores the owner, so the count is "distinct other people who saw
+   * this ad". Returns the up-to-date count (and whether it changed) so the
+   * controller can broadcast it in realtime.
+   */
+  async recordView(
+    userId: string,
+    postId: string,
+  ): Promise<{ postId: string; viewCount: number; changed: boolean }> {
+    const post = await this.postRepository.findOne({ where: { id: postId } });
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+    if (post.userId === userId) {
+      return { postId, viewCount: post.viewCount ?? 0, changed: false };
+    }
+    const inserted = await this.viewRepository
+      .createQueryBuilder()
+      .insert()
+      .into(DisplayPostViewEntity)
+      .values({ postId, userId })
+      .orIgnore()
+      .execute();
+    const isNew = (inserted.raw as unknown[] | undefined)?.length
+      ? true
+      : false;
+    if (!isNew) {
+      return { postId, viewCount: post.viewCount ?? 0, changed: false };
+    }
+    // Recount from the source of truth rather than `+ 1` so the denormalised
+    // number self-heals if it ever drifts.
+    const viewCount = await this.viewRepository.count({ where: { postId } });
+    await this.postRepository.update({ id: postId }, { viewCount });
+    return { postId, viewCount, changed: true };
+  }
 
   // ---- Pricing / config ---------------------------------------------------
 
@@ -337,6 +377,7 @@ export class DisplayService {
       city: post.city,
       area: post.area,
       description: post.description,
+      viewCount: post.viewCount ?? 0,
       extraFields: post.extraFields ?? {},
       durationHours: post.durationHours,
       price: Number(post.price),

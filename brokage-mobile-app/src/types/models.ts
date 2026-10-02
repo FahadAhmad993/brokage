@@ -218,6 +218,8 @@ export type DisplayPost = {
   city?: string | null;
   area?: string | null;
   description?: string | null;
+  /** Distinct visitors (owner excluded) — shown as the eye + "members" badge. */
+  viewCount?: number;
   /** Optional specs left as free key→value — bedrooms, bathrooms, kitchen, carporch, tvLounge, etc. */
   extraFields: Record<string, string>;
   durationHours: number;

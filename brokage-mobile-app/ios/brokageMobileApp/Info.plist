@@ -45,6 +45,8 @@
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Brokage uses your location so you can share where you are in a chat.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Brokage saves property photos you download to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Brokage needs access to your photos to add images to your property listing.</string>
 	<key>RCTNewArchEnabled</key>

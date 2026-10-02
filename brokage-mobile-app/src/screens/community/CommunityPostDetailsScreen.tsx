@@ -1,26 +1,39 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import {
-  Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
+import { PostPhotoOverlay } from '../../components/post/PostPhotoOverlay';
+import { PostImageViewerModal } from '../../components/post/PostImageViewerModal';
 
 export function CommunityPostDetailsScreen({ route }: any) {
   const styles = useThemedStyles(buildStyles);
   const post = route.params.post;
+  const { width } = useWindowDimensions();
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const images: string[] = post.images ?? [];
 
   return (
     <ScrollView style={styles.container}>
-      {post.images?.map((uri: string, index: number) => (
-        <Image
+      {images.map((uri: string, index: number) => (
+        <Pressable
           key={`${uri}-${index}`}
-          source={{ uri }}
+          onPress={() => setViewerIndex(index)}
           style={styles.image}
-          resizeMode="cover"
-        />
+          accessibilityRole="imagebutton"
+          accessibilityLabel="Open photo">
+          <PostPhotoOverlay
+            uri={uri}
+            width={width}
+            height={260}
+            brokerName={post.authorName}
+          />
+        </Pressable>
       ))}
 
       <View style={styles.content}>
@@ -34,6 +47,13 @@ export function CommunityPostDetailsScreen({ route }: any) {
           {post.description}
         </Text>
       </View>
+
+      <PostImageViewerModal
+        images={images}
+        startIndex={viewerIndex}
+        onClose={() => setViewerIndex(null)}
+        brokerName={post.authorName}
+      />
     </ScrollView>
   );
 }

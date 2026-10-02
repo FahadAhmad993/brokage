@@ -31,6 +31,6 @@ import { SettingsModule } from '../settings/settings.module';
   ],
   controllers: [ChatsController],
   providers: [ChatsService, ChatsGateway, ChatRetentionService],
-  exports: [ChatsService],
+  exports: [ChatsService, ChatsGateway],
 })
 export class ChatsModule {}

@@ -208,6 +208,13 @@ export async function markDisplayPostSold(id: string): Promise<DisplayPost> {
   return apiRequest<DisplayPost>(`/display/${id}/sold`, { method: 'PATCH' });
 }
 
+/** Count me as a visitor of this post (server dedupes per user, ignores the owner). */
+export async function recordDisplayPostView(
+  id: string,
+): Promise<{ postId: string; viewCount: number }> {
+  return apiRequest(`/display/${id}/view`, { method: 'POST' });
+}
+
 /** Community search bar → broker cards grid (e.g. query "5 marla"). */
 export async function searchDisplayBrokers(query: string): Promise<DisplayBrokerCard[]> {
   return apiRequest<DisplayBrokerCard[]>(`/display/search?q=${encodeURIComponent(query)}`);
@@ -246,12 +253,16 @@ export type MessageDeletedPayload = {
  * registry (not the underlying Socket instance) so they survive reconnects and
  * user changes. `connectChatSocket()` is the only place an `io(...)` is created.
  */
+export type DisplayViewsPayload = { postId: string; viewCount: number };
+
 const chat = {
   socket: null as Socket | null,
   /** Coalesces parallel `connectChatSocket()` calls into one `io(...)` instance. */
   connecting: null as Promise<Socket | null> | null,
   /** Threads the user has opened — re-emitted as `thread:join` after each reconnect. */
   joinedThreads: new Set<string>(),
+  /** Display posts whose live visitor count we're watching — replayed on reconnect. */
+  watchedDisplayPosts: new Set<string>(),
   /**
    * Tracks `socket.id + threadId` pairs that already emitted `thread:join` on this connection.
    * Without this every `send()` would re-emit join → redundant mark-read + `thread:update` bursts
@@ -269,6 +280,7 @@ const chat = {
     presence: new Set<(p: PresencePayload) => void>(),
     read: new Set<(p: MessageReadPayload) => void>(),
     deleted: new Set<(p: MessageDeletedPayload) => void>(),
+    displayViews: new Set<(p: DisplayViewsPayload) => void>(),
     /** Every successful socket connect (including first login connect). */
     connect: new Set<() => void>(),
     reconnect: new Set<() => void>(),
@@ -1120,6 +1132,9 @@ function attachSocketListeners(socket: Socket) {
       chat.threadJoinEmittedForSocket.add(joinKey);
       socket.emit('thread:join', { threadId: tid });
     }
+    if (chat.watchedDisplayPosts.size > 0) {
+      socket.emit('display:join', { postIds: [...chat.watchedDisplayPosts] });
+    }
     // Distinguish first-connect from a reconnect-after-disconnect so
     // subscribers can refetch missed state only when they actually need to.
     if (chat.hasEverConnected) {
@@ -1182,6 +1197,9 @@ function attachSocketListeners(socket: Socket) {
   });
   socket.on('message:deleted', (payload: MessageDeletedPayload) => {
     chat.subs.deleted.forEach(fn => fn(payload));
+  });
+  socket.on('display:views', (payload: DisplayViewsPayload) => {
+    chat.subs.displayViews.forEach(fn => fn(payload));
   });
 }
 
@@ -1248,6 +1266,7 @@ export async function disconnectChatSocket() {
   chat.socket = null;
   chat.connecting = null;
   chat.joinedThreads.clear();
+  chat.watchedDisplayPosts.clear();
   chat.threadJoinEmittedForSocket.clear();
   chat.presence.clear();
   chat.hasEverConnected = false;
@@ -1274,6 +1293,40 @@ export async function joinChatThreadSocket(threadId: string) {
   }
   chat.threadJoinEmittedForSocket.add(joinKey);
   socket.emit('thread:join', { threadId });
+}
+
+/** Start receiving live visitor-count updates for these Display posts. */
+export async function watchDisplayPosts(postIds: string[]) {
+  const fresh = postIds.filter(id => id && !chat.watchedDisplayPosts.has(id));
+  if (fresh.length === 0) {
+    return;
+  }
+  fresh.forEach(id => chat.watchedDisplayPosts.add(id));
+  const socket = await connectChatSocket();
+  if (socket?.connected) {
+    socket.emit('display:join', { postIds: fresh });
+  }
+  // If not connected yet, the `connect` handler replays the whole set.
+}
+
+export async function unwatchDisplayPosts(postIds: string[]) {
+  const present = postIds.filter(id => chat.watchedDisplayPosts.has(id));
+  if (present.length === 0) {
+    return;
+  }
+  present.forEach(id => chat.watchedDisplayPosts.delete(id));
+  const socket = chat.socket;
+  if (socket?.connected) {
+    socket.emit('display:leave', { postIds: present });
+  }
+}
+
+export function onDisplayViewsUpdate(handler: (p: DisplayViewsPayload) => void) {
+  chat.subs.displayViews.add(handler);
+  void connectChatSocket();
+  return () => {
+    chat.subs.displayViews.delete(handler);
+  };
 }
 
 export async function emitTypingStart(threadId: string) {

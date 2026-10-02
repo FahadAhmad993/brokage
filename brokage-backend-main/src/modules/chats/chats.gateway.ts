@@ -210,6 +210,44 @@ export class ChatsGateway
     this.server.to(threadId).emit('message:deleted', { threadId, messageId });
   }
 
+  /** Push a Display post's fresh visitor count to everyone watching it. */
+  broadcastDisplayViews(postId: string, viewCount: number) {
+    if (!this.server) {
+      return;
+    }
+    this.server
+      .to(`display:${postId}`)
+      .emit('display:views', { postId, viewCount });
+  }
+
+  @SubscribeMessage('display:join')
+  async handleDisplayJoin(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { postIds?: string[] },
+  ) {
+    const ids = (payload?.postIds ?? [])
+      .filter((id): id is string => typeof id === 'string' && id.length <= 64)
+      .slice(0, 50);
+    for (const id of ids) {
+      await client.join(`display:${id}`);
+    }
+    return { status: 'ok' };
+  }
+
+  @SubscribeMessage('display:leave')
+  async handleDisplayLeave(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { postIds?: string[] },
+  ) {
+    const ids = (payload?.postIds ?? [])
+      .filter((id): id is string => typeof id === 'string' && id.length <= 64)
+      .slice(0, 50);
+    for (const id of ids) {
+      await client.leave(`display:${id}`);
+    }
+    return { status: 'ok' };
+  }
+
   @SubscribeMessage('thread:join')
   async handleJoinThread(
     @ConnectedSocket() client: Socket,

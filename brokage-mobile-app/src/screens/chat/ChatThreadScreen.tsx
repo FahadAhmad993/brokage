@@ -25,8 +25,10 @@ import {
   CheckCheck,
   Clock,
   Copy,
+  CornerDownLeft,
   Image as ImageIcon,
   MapPin,
+  Maximize2,
   MoreVertical,
   Paperclip,
   Send,
@@ -90,6 +92,8 @@ import {
   fetchBlockedUsers,
 } from '../../api/client';
 import { ChatCommunityPostAttachment } from '../../components/chat/ChatCommunityPostAttachment';
+import { PostPhotoBranding } from '../../components/post/PostPhotoOverlay';
+import { PostImageViewerModal } from '../../components/post/PostImageViewerModal';
 import { LocationPickerModal } from '../../components/chat/LocationPickerModal';
 import { ReportSheetModal } from '../../components/chat/ReportSheetModal';
 import { ActionMenu, type ActionMenuItem } from '../../components/ActionMenu';
@@ -470,12 +474,17 @@ function AdImageAlbum({
   phase,
   onNext,
   onPrev,
+  brokerName,
+  onOpenViewer,
 }: {
   images: string[];
   imageIndex: number;
   phase: AdPhase;
   onNext: () => void;
   onPrev: () => void;
+  brokerName?: string | null;
+  /** Opens the full-screen viewer (with Download) on the photo at this index. */
+  onOpenViewer?: (index: number) => void;
 }) {
   const styles = useThemedStyles(buildStyles);
   /*
@@ -540,6 +549,7 @@ function AdImageAlbum({
             optimise away.
           */}
           <AdAlbumFrame key={images[safeIndex]} uri={images[safeIndex]} />
+          <PostPhotoBranding brokerName={brokerName} compact />
 
           {/* Tap the left/right half as well as swiping. */}
           {images.length > 1 ? (
@@ -557,6 +567,17 @@ function AdImageAlbum({
                 accessibilityLabel="Next photo"
               />
             </View>
+          ) : null}
+
+          {onOpenViewer ? (
+            <Pressable
+              style={styles.groupAdExpandBtn}
+              onPress={() => onOpenViewer(safeIndex)}
+              hitSlop={layout.hitSlop}
+              accessibilityRole="button"
+              accessibilityLabel="Open photo and download">
+              <Maximize2 color="#FFFFFF" size={14} strokeWidth={2.4} />
+            </Pressable>
           ) : null}
 
           {images.length > 1 ? (
@@ -659,6 +680,9 @@ function GroupAdsCarousel({
   const [adIndex, setAdIndex] = React.useState(0);
   const [imageIndex, setImageIndex] = React.useState(0);
   const [phase, setPhase] = React.useState<AdPhase>('cover');
+  const [adViewer, setAdViewer] = React.useState<{ ad: GroupAd; index: number } | null>(
+    null,
+  );
 
   const adListRef = React.useRef<FlatList<GroupAd>>(null);
 
@@ -769,6 +793,7 @@ function GroupAdsCarousel({
   }
 
   return (
+    <>
     <FlatList
       ref={adListRef}
       data={validAds}
@@ -873,6 +898,8 @@ function GroupAdsCarousel({
                   phase={phase}
                   onNext={showNext}
                   onPrev={showPrev}
+                  brokerName={item.advertiserName}
+                  onOpenViewer={index => setAdViewer({ ad: item, index })}
                 />
               ) : (
                 <View style={styles.groupAdAlbumStage}>
@@ -900,6 +927,13 @@ function GroupAdsCarousel({
         );
       }}
     />
+    <PostImageViewerModal
+      images={adViewer?.ad.images ?? []}
+      startIndex={adViewer ? adViewer.index : null}
+      onClose={() => setAdViewer(null)}
+      brokerName={adViewer?.ad.advertiserName}
+    />
+    </>
   );
 }
 // adds code 1 end
@@ -1014,6 +1048,14 @@ export function ChatThreadScreen() {
   const [reportSheetOpen, setReportSheetOpen] = React.useState(false);
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const messageInputRef = useRef<TextInput>(null);
+  /** Last known caret/selection in the composer — lets the "new line" button
+   *  break the message exactly where the user tapped, like WhatsApp. */
+  const composerSelectionRef = useRef({ start: 0, end: 0 });
+  /** Set only for a moment after inserting a newline, to park the caret right
+   *  after it; `undefined` the rest of the time so typing stays native/smooth. */
+  const [forcedSelection, setForcedSelection] = React.useState<
+    { start: number; end: number } | undefined
+  >(undefined);
   /**
    * Inverted list: small `contentOffset.y` ⇒ user is viewing the newest messages
    * (same idea as WhatsApp — no scrollToEnd on open).
@@ -2977,19 +3019,48 @@ const renderItem: ListRenderItem<ChatMessage> = ({ item, index }) => {
               dispatchTypingStart();
             }}
             onBlur={() => flushTypingStop()}
-           placeholder={
-  typingName
-    ? `${typingName} is typing…`
-    : `Message ${displayTitle ?? '…'}`
-}
+            onSelectionChange={e => {
+              composerSelectionRef.current = e.nativeEvent.selection;
+            }}
+            selection={forcedSelection}
+            placeholder={
+              typingName
+                ? `${typingName} is typing…`
+                : `Message ${displayTitle ?? '…'}`
+            }
             placeholderTextColor={colors.textMuted}
             style={styles.input}
-           multiline={false}
-numberOfLines={1}
-            blurOnSubmit={false}
+            // Grows with the text up to 4 lines (see `styles.input.maxHeight`),
+            // then scrolls inside the field so long messages stay readable.
+            multiline
+            scrollEnabled
             textAlignVertical="top"
             accessibilityLabel="Message text field"
           />
+          <Pressable
+            onPress={() => {
+              const caretStart = Math.min(composerSelectionRef.current.start, draft.length);
+              const caretEnd = Math.min(composerSelectionRef.current.end, draft.length);
+              const next = `${draft.slice(0, caretStart)}\n${draft.slice(caretEnd)}`;
+              const caret = caretStart + 1;
+              setDraft(next);
+              composerSelectionRef.current = { start: caret, end: caret };
+              setForcedSelection({ start: caret, end: caret });
+              dispatchTypingStart();
+              messageInputRef.current?.focus();
+              // Hand the caret back to the native input right after it moved.
+              setTimeout(() => setForcedSelection(undefined), 60);
+            }}
+            hitSlop={layout.hitSlop}
+            style={({ pressed }) => [styles.newLinePressable, pressed && styles.sendPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="New line">
+            <CornerDownLeft
+              color={colors.textSecondary}
+              size={iconSize.md}
+              strokeWidth={iconStroke}
+            />
+          </Pressable>
           <Pressable
             onPress={() => {
               const trimmed = draft.trim();
@@ -3315,6 +3386,18 @@ groupAdImageFill: {
 },
 
 /** Left half = previous photo, right half = next photo. */
+groupAdExpandBtn: {
+  position: 'absolute',
+  right: 8,
+  top: 40,
+  width: 28,
+  height: 28,
+  borderRadius: 14,
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: 'rgba(0,0,0,0.55)',
+},
+
 groupAdTapZones: {
   ...StyleSheet.absoluteFill,
   flexDirection: 'row',
@@ -3746,15 +3829,24 @@ bubbleImage: {
     ...typography.body,
     fontSize: 16,
     lineHeight: 22,
-    maxHeight: 120,
+    // Exactly 4 lines of text + vertical padding; beyond that the field
+    // scrolls internally instead of growing further.
+    maxHeight: 22 * 4 + (Platform.OS === 'ios' ? 22 : 20),
     minHeight: 44,
     paddingHorizontal: spacing.md,
     paddingVertical: Platform.OS === 'ios' ? 11 : 10,
     backgroundColor: colors.surfaceMuted,
-    borderRadius: layout.radius.full,
+    borderRadius: 22,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     color: colors.textPrimary,
+  },
+  /** WhatsApp-style "new line" key beside the field. */
+  newLinePressable: {
+    width: 40,
+    height: layout.minTouchTarget,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sendPressable: {
     width: layout.minTouchTarget,

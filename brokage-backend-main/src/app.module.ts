@@ -30,6 +30,7 @@ import { AppSettingEntity } from './modules/settings/entities/app-setting.entity
 import { AdminModule } from './modules/admin/admin.module';
 import { DisplayModule } from './modules/display/display.module';
 import { DisplayPostEntity } from './modules/display/entities/display-post.entity';
+import { DisplayPostViewEntity } from './modules/display/entities/display-post-view.entity';
 import { DisplayProfileEntity } from './modules/display/entities/display-profile.entity';
 import { OtpCodeEntity } from './modules/auth/entities/otp-code.entity';
 @Module({
@@ -117,6 +118,7 @@ import { OtpCodeEntity } from './modules/auth/entities/otp-code.entity';
           CommunityPostEntity,
           AppSettingEntity,
           DisplayPostEntity,
+          DisplayPostViewEntity,
           DisplayProfileEntity,
           OtpCodeEntity,
         ],

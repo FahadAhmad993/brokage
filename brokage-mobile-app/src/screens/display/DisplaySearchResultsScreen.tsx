@@ -21,6 +21,7 @@ import { iconSize, iconStroke } from '../../theme/icons';
 import { layout } from '../../theme/layout';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
+import { PostPhotoBranding } from '../../components/post/PostPhotoOverlay';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import { initialsFromDisplay } from '../../utils/userDisplay';
 
@@ -102,7 +103,10 @@ function BrokerCard({
       }>
       <View style={styles.cardImageWrap}>
         {thumb ? (
-          <Image source={{ uri: thumb }} style={styles.cardImage} resizeMode="cover" />
+          <>
+            <Image source={{ uri: thumb }} style={styles.cardImage} resizeMode="cover" />
+            <PostPhotoBranding brokerName={item.displayName} compact />
+          </>
         ) : (
           <View style={[styles.cardImage, styles.cardImageFallback]}>
             <Text style={styles.cardImageFallbackText}>

@@ -1,10 +1,11 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  type ViewToken,
   Image,
   Linking,
   Pressable,
@@ -35,6 +36,10 @@ import {
   fetchUserDisplayPosts,
   fetchUserDisplayProfile,
   markDisplayPostSold,
+  onDisplayViewsUpdate,
+  recordDisplayPostView,
+  unwatchDisplayPosts,
+  watchDisplayPosts,
   sendChatMessage,
   setMyDisplayCover,
 } from '../../api/client';
@@ -51,6 +56,8 @@ import { layout } from '../../theme/layout';
 import { spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
+import { PostPhotoOverlay } from '../../components/post/PostPhotoOverlay';
+import { PostImageViewerModal } from '../../components/post/PostImageViewerModal';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 
@@ -94,8 +101,27 @@ function formatRemainingTime(remainingSeconds: number | null | undefined): strin
   return 'Less than a minute left';
 }
 
-/** Horizontal swipe carousel for one post's photos, with a small "2/5" counter — the spec's "1/5 or 5x5 small label" requirement. */
-function PostImageCarousel({ images, width }: { images: string[]; width: number }) {
+/**
+ * Horizontal swipe carousel for one post's photos. Every photo carries the
+ * Broker watermark, the broker's name (top-right), the countdown and the
+ * eye + "members" counter; tapping a photo opens the full-screen viewer
+ * (with Download). The "2/5" counter stays bottom-right.
+ */
+function PostImageCarousel({
+  images,
+  width,
+  brokerName,
+  viewCount,
+  remainingLabel,
+  onOpen,
+}: {
+  images: string[];
+  width: number;
+  brokerName: string;
+  viewCount: number;
+  remainingLabel: string | null;
+  onOpen: (index: number) => void;
+}) {
   const styles = useThemedStyles(buildStyles);
   const [page, setPage] = useState(0);
   const height = Math.round(width * 0.72);
@@ -116,8 +142,20 @@ function PostImageCarousel({ images, width }: { images: string[]; width: number 
           const idx = Math.round(e.nativeEvent.contentOffset.x / width);
           setPage(idx);
         }}
-        renderItem={({ item }) => (
-          <Image source={{ uri: item }} style={{ width, height }} resizeMode="cover" />
+        renderItem={({ item, index }) => (
+          <Pressable
+            onPress={() => onOpen(index)}
+            accessibilityRole="imagebutton"
+            accessibilityLabel="Open photo">
+            <PostPhotoOverlay
+              uri={item}
+              width={width}
+              height={height}
+              brokerName={brokerName}
+              viewCount={viewCount}
+              remainingLabel={remainingLabel}
+            />
+          </Pressable>
         )}
       />
       {images.length > 1 ? (
@@ -163,6 +201,56 @@ export function DisplayScreen() {
     queryKey: ['display', 'posts', isOwn ? 'mine' : targetUserId],
     queryFn: () => (isOwn ? fetchMyDisplayPosts() : fetchUserDisplayPosts(targetUserId!)),
   });
+
+  const [viewer, setViewer] = useState<{ post: DisplayPost; index: number } | null>(
+    null,
+  );
+
+  const postsCacheKey = ['display', 'posts', isOwn ? 'mine' : targetUserId] as const;
+  const postIdsKey = (postsQuery.data ?? []).map(p => p.id).join(',');
+
+  // Live visitor counts: subscribe to every post on screen and patch the
+  // cached list whenever the server pushes a new number.
+  useEffect(() => {
+    const ids = postIdsKey ? postIdsKey.split(',') : [];
+    void watchDisplayPosts(ids);
+    return () => {
+      void unwatchDisplayPosts(ids);
+    };
+  }, [postIdsKey]);
+
+  useEffect(() => {
+    return onDisplayViewsUpdate(({ postId, viewCount }) => {
+      queryClient.setQueryData<DisplayPost[]>(postsCacheKey, old =>
+        old?.map(p => (p.id === postId ? { ...p, viewCount } : p)),
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient, isOwn, targetUserId]);
+
+  // Count a visit the first time a post scrolls into view (someone else's
+  // Display only — the server also ignores the owner's own views).
+  const viewedRef = useRef<Set<string>>(new Set());
+  const isOwnRef = useRef(isOwn);
+  isOwnRef.current = isOwn;
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      if (isOwnRef.current) {
+        return;
+      }
+      for (const token of viewableItems) {
+        const post = token.item as DisplayPost | undefined;
+        if (!post || post.status === 'pending' || viewedRef.current.has(post.id)) {
+          continue;
+        }
+        viewedRef.current.add(post.id);
+        recordDisplayPostView(post.id).catch(() => {
+          // Allow a retry next time it scrolls into view.
+          viewedRef.current.delete(post.id);
+        });
+      }
+    },
+  ).current;
 
   const invalidate = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['display'] });
@@ -344,6 +432,8 @@ export function DisplayScreen() {
       <FlatList
         data={posts}
         keyExtractor={p => p.id}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
           <View>
@@ -405,39 +495,7 @@ export function DisplayScreen() {
           const remainingLabel = formatRemainingTime(post.remainingSeconds);
           return (
             <View style={styles.postCard}>
-              <PostImageCarousel images={post.images} width={carouselWidth} />
-
-              {isSold ? (
-                <View style={[styles.statusBadge, styles.statusBadgeSold]}>
-                  <Text style={styles.statusBadgeText}>SOLD</Text>
-                </View>
-              ) : isExpired ? (
-                <View style={[styles.statusBadge, styles.statusBadgeExpired]}>
-                  <Text style={styles.statusBadgeText}>EXPIRED</Text>
-                </View>
-              ) : isRejected && isOwn ? (
-                <View style={[styles.statusBadge, styles.statusBadgeExpired]}>
-                  <Text style={styles.statusBadgeText}>Rejected</Text>
-                </View>
-              ) : isPending && isOwn ? (
-                <View style={[styles.statusBadge, styles.statusBadgePending]}>
-                  <Text style={styles.statusBadgeText}>Pending review</Text>
-                </View>
-              ) : (
-                <View style={[styles.statusBadge, styles.statusBadgeActive]}>
-                  <Text style={styles.statusBadgeText}>Active</Text>
-                </View>
-              )}
-
-              {/* Live countdown — "23h 40m left" — only meaningful for a
-                  verified, still-running post; sold/expired/pending posts
-                  don't have a ticking timer worth showing here. */}
-              {remainingLabel && (post.status === 'active' || post.status === 'sold') ? (
-                <View style={styles.remainingBadge}>
-                  <Text style={styles.remainingBadgeText}>{remainingLabel}</Text>
-                </View>
-              ) : null}
-
+              {/* Text first, picture below. */}
               <View style={styles.postBody}>
                 <Text style={styles.postSummary}>{summarizeFields(post)}</Text>
                 {post.description ? (
@@ -445,6 +503,43 @@ export function DisplayScreen() {
                     {post.description}
                   </Text>
                 ) : null}
+              </View>
+
+              <View>
+                <PostImageCarousel
+                  images={post.images}
+                  width={carouselWidth}
+                  brokerName={post.authorName}
+                  viewCount={post.viewCount ?? 0}
+                  remainingLabel={
+                    remainingLabel && (post.status === 'active' || post.status === 'sold')
+                      ? remainingLabel
+                      : null
+                  }
+                  onOpen={index => setViewer({ post, index })}
+                />
+
+                {isSold ? (
+                  <View style={[styles.statusBadge, styles.statusBadgeSold]}>
+                    <Text style={styles.statusBadgeText}>SOLD</Text>
+                  </View>
+                ) : isExpired ? (
+                  <View style={[styles.statusBadge, styles.statusBadgeExpired]}>
+                    <Text style={styles.statusBadgeText}>EXPIRED</Text>
+                  </View>
+                ) : isRejected && isOwn ? (
+                  <View style={[styles.statusBadge, styles.statusBadgeExpired]}>
+                    <Text style={styles.statusBadgeText}>Rejected</Text>
+                  </View>
+                ) : isPending && isOwn ? (
+                  <View style={[styles.statusBadge, styles.statusBadgePending]}>
+                    <Text style={styles.statusBadgeText}>Pending review</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.statusBadge, styles.statusBadgeActive]}>
+                    <Text style={styles.statusBadgeText}>Active</Text>
+                  </View>
+                )}
               </View>
 
               {isOwn ? (
@@ -488,6 +583,26 @@ export function DisplayScreen() {
             </View>
           );
         }}
+      />
+
+      <PostImageViewerModal
+        images={viewer?.post.images ?? []}
+        startIndex={viewer ? viewer.index : null}
+        onClose={() => setViewer(null)}
+        brokerName={viewer?.post.authorName}
+        viewCount={
+          viewer
+            ? (postsQuery.data?.find(p => p.id === viewer.post.id)?.viewCount ??
+              viewer.post.viewCount ??
+              0)
+            : undefined
+        }
+        remainingLabel={
+          viewer &&
+          (viewer.post.status === 'active' || viewer.post.status === 'sold')
+            ? formatRemainingTime(viewer.post.remainingSeconds)
+            : null
+        }
       />
     </SafeAreaView>
   );
@@ -587,16 +702,6 @@ const buildStyles = () =>
     statusBadgeActive: { backgroundColor: colors.success },
     statusBadgeExpired: { backgroundColor: colors.textMuted },
     statusBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
-    remainingBadge: {
-      position: 'absolute',
-      top: spacing.sm,
-      right: spacing.sm,
-      backgroundColor: 'rgba(0,0,0,0.6)',
-      borderRadius: layout.radius.sm,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 3,
-    },
-    remainingBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
     postBody: { padding: spacing.md, gap: 4 },
     postSummary: { ...typography.body, fontWeight: '700', color: colors.textPrimary },
     postDescription: { ...typography.bodySmall, color: colors.textSecondary },

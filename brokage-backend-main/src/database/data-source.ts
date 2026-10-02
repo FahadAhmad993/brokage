@@ -12,6 +12,7 @@ import { ContentReportEntity } from '../modules/moderation/entities/content-repo
 import { CommunityPostEntity } from '../modules/community-posts/entities/community-post.entity';
 import { AppSettingEntity } from '../modules/settings/entities/app-setting.entity';
 import { DisplayPostEntity } from '../modules/display/entities/display-post.entity';
+import { DisplayPostViewEntity } from '../modules/display/entities/display-post-view.entity';
 import { DisplayProfileEntity } from '../modules/display/entities/display-profile.entity';
 import { OtpCodeEntity } from '../modules/auth/entities/otp-code.entity';
 
@@ -35,6 +36,7 @@ export default new DataSource({
     CommunityPostEntity,
     AppSettingEntity,
     DisplayPostEntity,
+    DisplayPostViewEntity,
     DisplayProfileEntity,
     OtpCodeEntity,
   ],

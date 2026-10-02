@@ -10,6 +10,7 @@ import {
 import type { ChatMessage } from '../../types/models';
 import { useThemedStyles } from '../../hooks/useThemedStyles';
 import { colors } from '../../theme/colors';
+import { PostPhotoBranding } from '../post/PostPhotoOverlay';
 
 type Props = {
   post: NonNullable<ChatMessage['communityPostContext']>;
@@ -32,11 +33,14 @@ export function ChatCommunityPostAttachment({
         pressed && styles.pressed,
       ]}>
       {image ? (
-        <Image
-          source={{ uri: image }}
-          style={styles.image}
-          resizeMode="cover"
-        />
+        <View style={styles.image}>
+          <Image
+            source={{ uri: image }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+          <PostPhotoBranding brokerName={post.authorName} compact />
+        </View>
       ) : null}
 
       <View style={styles.content}>
